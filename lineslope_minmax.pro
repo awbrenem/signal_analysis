@@ -3,10 +3,47 @@
 ;returned standard deviation of the slope and intercept
 ;Returns useful values
 
-function lineslope_minmax,xvals,yvals,yerr
+;*********
+;******SHOULD UPDATE THIS TO USE fitexy.pro WHICH ALLOWS UNCERTAINTIES IN BOTH X, Y DIRECTIONS
+;*********
+
+
+function lineslope_minmax,xvals,yvals,yerr,xerr=xerror
 
 
   coefs = LINFIT(xvals,yvals,MEASURE_ERRORS=yerr,/DOUBLE,chisqr=chs,sigma=siggy,prob=prob)
+
+stop
+
+  fitexy,xvals,yvals,a,b,x_sig=xerror,y_sig=yerr
+
+
+;       FITEXY, x, y, A, B, X_SIG= , Y_SIG= , [sigma_A_B, chi_sq, q, TOL=]
+;
+; INPUTS:
+;       x = array of values for independent variable.
+;       y = array of data values assumed to be linearly dependent on x.
+;
+; REQUIRED INPUT KEYWORDS:
+;       X_SIGMA = scalar or array specifying the standard deviation of x data.
+;       Y_SIGMA = scalar or array specifying the standard deviation of y data.
+;
+; OPTIONAL INPUT KEYWORD:
+;       TOLERANCE = desired accuracy of minimum & zero location, default=1.e-3.
+;
+; OUTPUTS:
+;       A_intercept = constant parameter result of linear fit,
+;       B_slope = slope parameter, so that:
+;                       ( A_intercept + B_slope * x ) approximates the y data.
+
+
+
+
+
+
+
+
+
 
 
   ;Calculate reduced chi-sqr
