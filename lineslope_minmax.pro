@@ -3,19 +3,27 @@
 ;returned standard deviation of the slope and intercept
 ;Returns useful values
 
-;*********
-;******SHOULD UPDATE THIS TO USE fitexy.pro WHICH ALLOWS UNCERTAINTIES IN BOTH X, Y DIRECTIONS
-;*********
 
 
 function lineslope_minmax,xvals,yvals,yerr,xerr=xerror
 
 
-  coefs = LINFIT(xvals,yvals,MEASURE_ERRORS=yerr,/DOUBLE,chisqr=chs,sigma=siggy,prob=prob)
+  ;;************
+  ;;testing 
+  ;xvals = [0.0,0.03,0.015,0.075,-0.02]
+  ;yvals = [251.5,333.5,452.,620.5,853.]
+  ;xerror = [0.5,0.5,0.5,0.5,100.]
+  ;yerr = [31.5,50.5,68.,100.5,10000.0]
+  
+  
+  ;Old method - only errors in y allowed.  
+  ;coefs = LINFIT(xvals,yvals,MEASURE_ERRORS=yerr,/DOUBLE,chisqr=chs,sigma=siggy,prob=prob)
 
-stop
+  ;New method - both x and y errors allowed
+  fitexy,xvals,yvals,a,b,x_sig=xerror,y_sig=yerr,siggy,chs,prob
+  coefs = [a,b]
 
-  fitexy,xvals,yvals,a,b,x_sig=xerror,y_sig=yerr
+
 
 
 ;       FITEXY, x, y, A, B, X_SIG= , Y_SIG= , [sigma_A_B, chi_sq, q, TOL=]
@@ -36,8 +44,12 @@ stop
 ;       B_slope = slope parameter, so that:
 ;                       ( A_intercept + B_slope * x ) approximates the y data.
 
-
-
+;From "Numerical Recipes" column by Press and Teukolsky: 
+;      in "Computer in Physics", May, 1992 Vol.6 No.3 
+;      Also see the 2nd edition of the book "Numerical Recipes" by Press et al. 
+;      In order to avoid problems with data sets where X and Y are of very 
+;      different order of magnitude the data are normalized before the fitting 
+;      process is started. 
 
 
 
