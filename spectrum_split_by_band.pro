@@ -2,6 +2,9 @@
 ;E.g. separate an RBSP spectrum into chorus upper and lower bands. 
 
 
+
+
+
 ;spec_tvar --> input spectrum tplot variable [ntimes, nvals, nfreqs]
 ;split_tvar --> input tplot variable with split lines  [ntimes, nlines]
 ;   e.g. to split a spectrum in two --> [ntimes, 1]. 
@@ -9,8 +12,21 @@
 ;        Code will return nlines+1 spectra 
 ;        Split lines must be in ascending frequency order. 
 
+;chnames --> keyword that can be set to help name the output tplot variables.
+;Size should be nlines+2, where the extra elements are '0' and 'maxfreq' 
+;   e.g. channelnames = ['0','0.1fce','0.5fce','fce','maxfreq']
+;   output would be, for example, 'spec_0-0.1fce'
+;
+;   
+;wv --> set to return wave values of final spectra. Size [nlines,4]. Includes:
+;wave_vals[*,0] --> total spectral amp/power
+;wave_vals[*,1] --> max value of spectral amp/power
+;wave_vals[*,2] --> median value of spectral amp/power
+;wave_vals[*,3] --> average value of spectral amp/power
 
-pro spectrum_split_by_band, spec_tvar, split_tvar
+
+
+pro spectrum_split_by_band, spec_tvar, split_tvar, chnames=channelnames, wv=wave_vals
 
 
 
@@ -33,8 +49,13 @@ fcevals[*,1] = 1000.
 store_data,'fces',dd.x,fcevals
 
 
+
+channelnames = ['0','100','1000','7300']
+
 spec_tvar = 'rbspb_efw_spec64_scmw'
 split_tvar = 'fces'
+
+
 
 
 ;**************
@@ -61,28 +82,63 @@ nlines = size(splitv,/n_dimensions)
 if nlines eq 1 then splitv = reform(splitv,n_elements(splitv),1)
 
 
+wave_vals = fltarr(nlines,4)
+;wave_vals[*,0] --> total spectral amp/power
+;wave_vals[*,1] --> max value of spectral amp/power
+;wave_vals[*,2] --> median value of spectral amp/power
+;wave_vals[*,3] --> average value of spectral amp/power
 
 
 
-
+;---------------------------------------------------------------------------------------------
+;Main loop. For each combination of adjacent lines create the spectra that fall within them. 
+;---------------------------------------------------------------------------------------------
 
 for i=0,nlines do begin
   specv_tmp = specv.y
   specv_tmp[*] = !values.f_nan
-  for qq=0,sz1-1 do begin
   
+  
+  for qq=0,sz1-1 do begin
+
+    ;zero freq to first line freq  
     if i eq 0. then goo = where((specv.v ge 0.) and (specv.v lt splitv[qq,i]))
+    ;last line freq to max spectral freq
     if i eq nlines then goo = where((specv.v ge splitv[qq,i-1]) and (specv.v lt max(specv.v)))
+    ;freqs b/t adjacent lines
     if (i gt 0.) and (i lt nlines) then goo = where((specv.v ge splitv[qq,i-1]) and (specv.v lt splitv[qq,i]))
 
+
+
     if goo[0] ne -1 then specv_tmp[qq,goo] = 1    
-  
-  
   endfor
 
-  store_data,'spec_'+strtrim(floor(i),2),specv.x,specv_tmp*specv.y,specv.v,dlim=dlim,lim=lim
+  specvresult = specv_tmp*specv.y
+
+
+  ;get rid of zero spec values which screw up the below calculations.
+  goo = where(specvresult eq 0.)
+  if goo[0] ne -1 then specvresult[goo] = !values.f_nan
+
+
+  wave_vals[i,0] = total(specvresult,/nan)
+  wave_vals[i,1] = max(specvresult,/nan)
+  wave_vals[i,2] = median(specvresult)
+  wave_vals[i,3] = mean(specvresult,/nan)
+ 
+
+  if not keyword_set(channelnames) then store_data,'spec_'+strtrim(floor(i),2),specv.x,specvresult,specv.v,dlim=dlim,lim=lim
+  if keyword_set(channelnames) then store_data,'spec_'+channelnames[i]+'-'+channelnames[i+1],specv.x,specvresult,specv.v,dlim=dlim,lim=lim 
 
 endfor
+
+
+;Set zero values from wave_vals array to NaNs.
+goo = where(wave_vals eq 0.)
+if goo[0] ne -1 then wave_vals[goo] = !values.f_nan
+
+
+
 
 rbsp_efw_init
 options,['spec_0','spec_1'],'spec',1
@@ -90,9 +146,12 @@ ylim,[spec_tvar,'spec_0','spec_1'],1,7000,1
 ;zlim,'spec_?',0,1,0
 ;zlim,'spec_?',0,1,0
 loadct,39
-tplot,[spec_tvar,'spec_2','spec_1','spec_0']
+tplot,[spec_tvar,reverse('spec_*')]
 
 stop
+
+
+
 
 ;
 ;;limit spectral data to chorus only (upper and lower band separately), and to
