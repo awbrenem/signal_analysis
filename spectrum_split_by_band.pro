@@ -23,6 +23,9 @@
 ;wave_vals[*,1] --> max value of spectral amp/power
 ;wave_vals[*,2] --> median value of spectral amp/power
 ;wave_vals[*,3] --> average value of spectral amp/power
+;wave_vals[*,4] --> 0.25% quartile of spectral amp/power
+;wave_vals[*,5] --> 0.50% quartile of spectral amp/power (same as median)
+;wave_vals[*,6] --> 0.75% quartile of spectral amp/power
 
 
 ;Example usage:
@@ -71,12 +74,8 @@ pro spectrum_split_by_band, spec_tvar, split_tvar, chnames=channelnames, wv=wave
   nlines = nlines[1]
   
   
-  wave_vals = fltarr(nlines+1,4)
-  ;wave_vals[*,0] --> total spectral amp/power
-  ;wave_vals[*,1] --> max value of spectral amp/power
-  ;wave_vals[*,2] --> median value of spectral amp/power
-  ;wave_vals[*,3] --> average value of spectral amp/power
-  
+  wave_vals = fltarr(nlines+1,7)
+
   
   
   ;---------------------------------------------------------------------------------------------
@@ -113,6 +112,24 @@ pro spectrum_split_by_band, spec_tvar, split_tvar, chnames=channelnames, wv=wave
     wave_vals[i,1] = max(specvresult,/nan)
     wave_vals[i,2] = median(specvresult)
     wave_vals[i,3] = mean(specvresult,/nan)
+
+    ;------------------------------------------------------------------------
+    ;Quartiles
+    ;------------------------------------------------------------------------
+
+    ;Get rid of NaN values when calculating quartiles
+    goo = where(finite(specvresult) eq 1)
+    if goo[0] ne -1 then begin
+      pttmp = cgPercentiles(specvresult[goo],Percentiles=[0.25,0.5,0.75])
+      wave_vals[i,4] = pttmp[0]
+      wave_vals[i,5] = pttmp[1]
+      wave_vals[i,6] = pttmp[2]
+    endif
+
+
+
+
+
    
   
     if not keyword_set(channelnames) then store_data,'spec_'+strtrim(floor(i),2),specv.x,specvresult,specv.v,dlim=dlim,lim=lim
@@ -128,20 +145,25 @@ pro spectrum_split_by_band, spec_tvar, split_tvar, chnames=channelnames, wv=wave
   
   
    
-  
   ;----------------------------------------------------
-  ;The following is for testing 
+  ;The following is for testing
   ;----------------------------------------------------
+
   
-  if keyword_set(testtmp) then begin 
+  if keyword_set(testtmp) then begin
+  
     nametmp = strarr(n_elements(channelnames))
     for i=0,n_elements(channelnames)-2 do begin
       nametmp[i] = 'spec_'+channelnames[i]+'-'+channelnames[i+1]+'_comb'
       store_data,nametmp[i],data=['spec_'+channelnames[i]+'-'+channelnames[i+1],'fces']
+      options,'fces','colors',250
+      options,'fces','thick',2
     endfor
-    
+ 
+     
     rbsp_efw_init
     loadct,39
+    ylim,nametmp,0.1,8000,1
     tplot,nametmp
     stop
   endif
@@ -149,93 +171,5 @@ pro spectrum_split_by_band, spec_tvar, split_tvar, chnames=channelnames, wv=wave
   ;----------------------------------------------------
 
 end
-
-
-
-
-;
-;;limit spectral data to chorus only (upper and lower band separately), and to
-;;values outside of chorus range ("other")
-;spectmpL = spectmp & spectmpU = spectmp & spectmpO = spectmp
-;;Remove zero values that screw up average and median calculation
-;goo = where(spectmp eq 0.)
-;if goo[0] ne -1 then spectmpL[goo] = !values.f_nan
-;if goo[0] ne -1 then spectmpU[goo] = !values.f_nan
-;if goo[0] ne -1 then spectmpO[goo] = !values.f_nan
-;
-;if finite(fcetmp[0]) and is_struct(specv) then begin
-;  for qq=0,n_elements(fcetmp)-1 do begin $
-;    gooL = where((specv.v le fcetmp[qq]/10.) or (specv.v ge fcetmp[qq]/2.)) & $
-;    gooU = where((specv.v lt fcetmp[qq]/2.)  or (specv.v gt fcetmp[qq])) & $
-;    gooO = where((specv.v gt fcetmp[qq]/10.) or (specv.v lt 20.)) & $
-;    if gooL[0] ne -1 then spectmpL[qq,gooL] = !values.f_nan & $
-;    if gooU[0] ne -1 then spectmpU[qq,gooU] = !values.f_nan & $
-;    if gooO[0] ne -1 then spectmpO[qq,gooO] = !values.f_nan
-;endfor
-;endif
-;
-;if finite(fcetmp[0]) then begin
-;  store_data,'tmpL',tt,spectmpL,specv.v,dlim=dlim,lim=lim
-;  store_data,'tmpU',tt,spectmpU,specv.v,dlim=dlim,lim=lim
-;  store_data,'tmpO',tt,spectmpO,specv.v,dlim=dlim,lim=lim
-;
-;  ;vague idea of fill factor
-;  totalchorusspecL_E = total(spectmpL,/nan)
-;  totalchorusspecU_E = total(spectmpU,/nan)
-;  totalnonchorusspec_E = total(spectmpO,/nan)
-;
-;  maxchorusspecL_E = max(spectmpL,/nan)
-;  maxchorusspecU_E = max(spectmpU,/nan)
-;  maxnonchorusspec_E = max(spectmpO,/nan)
-;
-;  avgchorusspecL_E = mean(spectmpL,/nan)
-;  avgchorusspecU_E = mean(spectmpU,/nan)
-;  avgnonchorusspec_E = mean(spectmpO,/nan)
-;
-;  medianchorusspecL_E = median(spectmpL)
-;  medianchorusspecU_E = median(spectmpU)
-;  mediannonchorusspec_E = median(spectmpO)
-;
-;  if totalchorusspecL_E eq 0. then totalchorusspecL_E = !values.f_nan
-;  if totalchorusspecU_E eq 0. then totalchorusspecU_E = !values.f_nan
-;  if totalnonchorusspec_E eq 0. then totalnonchorusspec_E = !values.f_nan
-;  if maxchorusspecL_E eq 0. then maxchorusspecL_E = !values.f_nan
-;  if maxchorusspecU_E eq 0. then maxchorusspecU_E = !values.f_nan
-;  if maxnonchorusspec_E eq 0. then maxnonchorusspec_E = !values.f_nan
-;  if avgchorusspecL_E eq 0. then avgchorusspecL_E = !values.f_nan
-;  if avgchorusspecU_E eq 0. then avgchorusspecU_E = !values.f_nan
-;  if avgnonchorusspec_E eq 0. then avgnonchorusspec_E = !values.f_nan
-;  if medianchorusspecL_E eq 0. then medianchorusspecL_E = !values.f_nan
-;  if medianchorusspecU_E eq 0. then medianchorusspecU_E = !values.f_nan
-;  if mediannonchorusspec_E eq 0. then mediannonchorusspec_E = !values.f_nan
-;
-;
-;  print,'Totals ',totalnonchorusspec_E,totalchorusspecL_E,totalchorusspecU_E
-;  print,'Max ',maxnonchorusspec_E,maxchorusspecL_E,maxchorusspecU_E
-;  print,'Avg ',avgnonchorusspec_E,avgchorusspecL_E,avgchorusspecU_E
-;  print,'Median ',mediannonchorusspec_E,medianchorusspecL_E,medianchorusspecU_E
-;
-;endif else begin
-;  totalchorusspecL_E = !values.f_nan
-;  totalchorusspecU_E = !values.f_nan
-;  totalnonchorusspec_E = !values.f_nan
-;
-;  maxchorusspecL_E = !values.f_nan
-;  maxchorusspecU_E = !values.f_nan
-;  maxnonchorusspec_E = !values.f_nan
-;
-;  avgchorusspecL_E = !values.f_nan
-;  avgchorusspecU_E = !values.f_nan
-;  avgnonchorusspec_E = !values.f_nan
-;
-;  medianchorusspecL_E = !values.f_nan
-;  medianchorusspecU_E = !values.f_nan
-;  mediannonchorusspec_E = !values.f_nan
-;
-;
-;endelse
-;
-
-
 
 
