@@ -12,31 +12,36 @@
 
 
 
-def plot_spectrogram(t,f,p, vmn=0, vmx=1, yscale='linear'):
+def plot_spectrogram(t,f,p,vr=[0,1], yscale='linear', pl=1, xr=0, yr=0):
 
     import matplotlib.pyplot as plt
     import numpy as np
 
 
-    vmn, vmx = 0, 1
-    xr = [np.min(t),np.max(t)]
-    yr = [np.min(f),np.max(f)]
+    if not xr: xr = [np.min(t),np.max(t)]
+    if not yr: yr = [np.min(f),np.max(f)]
 
-    plog = 10.*np.log10(p)
+    if pl:
+        pn = 10.*np.log10(p)
+    else: 
+        #For linear scale, normalize data to 0-1
+        pn = (((p - np.min(p))) / (np.max(p) - np.min(p)))
 
-
-
-    #Normalize data to 0-1
-    pn = (((plog - np.min(plog))) / (np.max(plog) - np.min(plog)))
 
     fig, ax = plt.subplots()
-    im = ax.imshow(pn,vmin=vmn,vmax=vmx,cmap='turbo',aspect='auto', extent=[np.min(t),np.max(t),np.min(f),np.max(f)])
-    #Force x,y axes to be defined exactly based on the range of data.
-    ax.set_ylim(np.min(f),np.max(f))
-    ax.set_xlim(np.min(t),np.max(t))
 
-    plt.yscale('linear')
+
+    
+    im = ax.imshow(pn,vmin=vr[0],vmax=vr[1],cmap='turbo',aspect='auto', extent=[np.min(t),np.max(t),np.min(f),np.max(f)], origin='lower')
+    #Force x,y axes to be defined exactly based on the range of data.
+    ax.set_ylim(yr[0],yr[1])
+    ax.set_xlim(xr[0],xr[1])
+    #ax.set_ylim(np.min(f),np.max(f))
+    #ax.set_xlim(np.min(t),np.max(t))
+
+    plt.yscale(yscale)
     plt.xlim(xr)
     plt.ylim(yr)
 
+    plt.show()
 
