@@ -25,8 +25,8 @@ def plot_spectrogram(t,f,p,vr=[0,1], yscale='linear', pl=1, xr=0, yr=0):
         pn = 10.*np.log10(p)
     else: 
         #For linear scale, normalize data to 0-1
-        pn = (((p - np.min(p))) / (np.max(p) - np.min(p)))
-
+        #pn = (((p - np.min(p))) / (np.max(p) - np.min(p)))
+        pn = p
 
     fig, ax = plt.subplots()
 
