@@ -45,3 +45,4 @@ def plot_spectrogram(t,f,p,vr=[0,1], yscale='linear', pl=1, xr=0, yr=0):
 
     plt.show()
 
+    return pn
