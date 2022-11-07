@@ -22,54 +22,6 @@ import plot_spectrogram as ps
 
 
 
-path = '/Users/abrenema/Desktop/Research/Rocket_missions/Endurance/gain_phase_files/'
-
-#fn = "Endurance_Analog 1_HF12_1000-20000000-100.txt"
-#fn = "Endurance_Analog 1_HF12 (1)_1000-20000000-100.txt"
-#fn = "Endurance_Analog 1_HF12 (2)_1000-20000000-100.txt"
-#fn = "Endurance_Analog 1_HF34 (3)_1000-20000000-100.txt"
-
-fn = "Endurance_Analog 1_V12D_10-10000-100.txt"
-
-
-#fn = "Endurance_Analog 1_HF34 (3)_1000-20000000-100.txt"
-with open(path + fn) as f:
-    lines = f.readlines()
-
-f = lines[0].split()  #freq in Hz
-p = lines[1].split()  #phase in deg
-g = lines[2].split()  #gain in dB
-f = [float(i) for i in f]
-p = [float(i) for i in p]
-g = [float(i) for i in g]
-
-
-fig, axs = plt.subplots(2)
-axs[0].plot(f,p)
-axs[1].plot(f,g)
-for i in axs: i.set_xscale('log')
-
-plt.show()
-
-
-#change to radians and make imaginary
-prad = [i*np.deg2rad for i in p]
-
-#change back to linear scaler
-Hmag = [10**(i/10.) for i in g]
-
-
-#Transfer function  H(w) = |H|*exp(-1*i*theta)
-H = [Hmag[i] * np.exp(-1j*prad[i]) for i in range(len(prad))]
-
-fig2, axs2 = plt.subplots(2)
-axs2[0].plot(f,Hmag)
-axs2[0].set_yscale('log')
-axs2[1].plot(f,np.imag(prad),'x',f,prad)
-plt.show()
-
-
-
 #Load Endurance data for testing
 vlf = end.efield_vlf()
 tvlf = vlf.tvlf
@@ -86,100 +38,132 @@ yr = [0,12000]
 
 #FFT to get power spectral density (V^2/Hz). 
 #Mode defaults to PSD (V^2/Hz). 
-#Complex consists of amplitude (where magnitude = |amplitude|) and "phase" (not PSD)
+#Complex consists of amplitude (where magnitude = abs(complex))
 fspec, tspec, powerc = signal.spectrogram(vlf12, fs, nperseg=16384,noverlap=16384/2,window='hann',return_onesided=True,mode='complex')
 fspec, tspec, powerm = signal.spectrogram(vlf12, fs, nperseg=16384,noverlap=16384/2,window='hann',return_onesided=True,mode='magnitude')
 fspec, tspec, powera = signal.spectrogram(vlf12, fs, nperseg=16384,noverlap=16384/2,window='hann',return_onesided=True,mode='angle')
 #ft, tt, pt = signal.spectrogram(vlf12, fs, nperseg=16384,noverlap=16384/2,window='hann',return_onesided=True)
 
-
-pr = np.real(powerc)
+#Prove that abs(powerc) = powerm
+pr = np.abs(powerc)
 fig, axs3 = plt.subplots(2)
 axs3[0].plot(tspec,pr[3000,:])
 axs3[1].plot(tspec,powerm[3000,:])
-axs3.set_ylim[0,0.1]
 plt.show()
 
 
 
 
+
+
+path = '/Users/abrenema/Desktop/Research/Rocket_missions/Endurance/gain_phase_files/'
+
+#fn = "Endurance_Analog 1_HF12_1000-20000000-100.txt"
+#fn = "Endurance_Analog 1_HF12 (1)_1000-20000000-100.txt"
+#fn = "Endurance_Analog 1_HF12 (2)_1000-20000000-100.txt"
+#fn = "Endurance_Analog 1_HF34 (3)_1000-20000000-100.txt"
+
+#fn = "Endurance_Analog 1_V12D_10-10000-100.txt"
+fn = "Endurance_Analog 1_VLF12D_6-30000-100.txt"
+
+#fn = "Endurance_Analog 1_HF34 (3)_1000-20000000-100.txt"
+with open(path + fn) as f:
+    lines = f.readlines()
+
+f = lines[0].split()  #freq in Hz
+p = lines[1].split()  #phase in deg
+g = lines[2].split()  #gain in dB
+f = [float(i) for i in f]
+p = [float(i) for i in p]
+g = [float(i) for i in g]
+
+#change to radians
+prad = [np.deg2rad(i) for i in p]
+
+
+
+
+#change gain from dB to linear scaler for calculation of transfer function
+#From Steve Martin email on Nov 7, 2022: 
+#Gain=10^(0.05 * (opchan+gainoffset))
+offset = 0.
+Hmag = [10**(0.05*i + offset) for i in g]
+
+fig, axs = plt.subplots(3)
+axs[0].plot(f,g)
+axs[1].plot(f,Hmag)
+axs[2].plot(f,p)
+#axs[2].plot(f,prad)
+axs[0].set_title('gain/phase; \n fn='+ fn)
+axs[0].set_xscale('log')
+axs[1].set_xscale('log')
+axs[2].set_xscale('log')
+axs[0].set_yscale('linear')
+axs[1].set_ylim(0,20)
+axs[0].set(ylabel='gain(dB)',xlabel='freq(kHz)')
+axs[1].set(ylabel='gain',xlabel='freq(kHz)')
+axs[2].set(ylabel='phase(deg)',xlabel='freq(kHz)')
+#axs[:].set_xlim(-40,10)
+plt.show()
+
+
+
+#------------------------------------------------------------------
+#Transfer function  H(w) = |H|*exp(i*theta)
 
 #Interpolate transfer function to frequencies of FFT'd waveform data
-interp = interp1d(f,H,kind='cubic', bounds_error=False)
-Hnew = interp(fspec)
-fig, axs4 = plt.subplots(2)
-axs4[0].plot(fspec, Hnew)
-axs4[1].plot(f, np.real(H))
-axs4[0].set_xlim(0,15000)
+interp = interp1d(f,Hmag,kind='cubic', bounds_error=False)
+Hmag = interp(fspec)
+interp2 = interp1d(f,prad,kind='cubic', bounds_error=False)
+prad = interp2(fspec)
 
-#axs4[0].plot(fspec, np.imag(Hnew))
-#axs4[1].plot(f, np.imag(H))
+H = [Hmag[i] * np.exp(1j*prad[i]) for i in range(len(prad))]
 
-axs4[0].plot(fspec, np.real(Hnew),'.',f,np.real(H),'-')
-axs4[1].plot(fspec, np.imag(Hnew),'.',f,np.imag(H),'-')
+
+fig, axs = plt.subplots(2)
+axs[0].plot(f,p)
+axs[1].plot(fspec, prad)
+axs[0].set_xlim(0,15000)
+axs[1].set_xlim(0,15000)
 plt.show()
-
 
 
 #Apply transfer function to the complex FFT data.
 #(1) apply it to the complex FFT 
+ttime = 2000
 
-pnewc = powerc[:,0]/Hnew
+Htst = H
+Htst = [1 + 0j for i in H]
 
-plt.plot(fspec,powerm[:,0],'.',fspec,pnewc)
+
+
+#The transfer function correction applies to the POWER, not the amplitude
+
+corrected = powerc[:,ttime]/H
+#......
+#corrected = powerc[:,ttime]/Htst
+
+ratio = [np.abs(powerc[i,ttime])/np.abs(corrected[i]) for i in range(len(H))]
+
+
+fig, axs = plt.subplots(2)
+axs[0].plot(fspec,np.abs(powerc[:,ttime]),'.',fspec,np.abs(corrected),'x')
+axs[1].plot(fspec,ratio)
+axs[0].set_xscale('log')
+axs[0].set_yscale('log')
+axs[0].set_xlim(1,100000)
+axs[1].set_xscale('log')
+axs[1].set_yscale('log')
+axs[1].set_xlim(1,100000)
+axs[0].set_ylim(1e-7,1e-3)
+#axs[1].set_ylim(1e-7,1e-3)
 plt.show()
 
 
 
-#(2) apply it to the mag and phase FFT combined to create complex FFT
-
-ttime = 1000
-
-    #construct complex power
-pnew = [powerm[i,ttime] * np.exp(-1j*powera[i,ttime]) for i in range(len(fspec))]
-
-
-pnewCorr = pnew/Hnew
-
-plt.plot(fspec,pnewCorr,'.',fspec,pnew)
-plt.show()
-
-for i in range(100):
-    print(fspec[i], np.real(pnewCorr[i]),  np.real(pnew[i]))
 
 
 
-
-num = np.abs(np.real(pnewCorr))
-den = np.abs(np.real(pnew))
-ratio = [num[i]/den[i] for i in range(len(num))]
-plt.plot(fspec,ratio)
-plt.show()
-
-
-
-
-plt.plot(fspec,np.abs(np.real(pnew)),'x',fspec,powerm[:,ttime])
-plt.xlim(6000,6200)
-#plt.ylim(-0.01,0.01)
-plt.yscale('log')
-plt.show()
-
-
-
-powerc2 = powerm[:,0] * np.exp(-1*powera[:,0])
-
-
-
-pnewm = powerm[:,0]/np.real(Hnew)
-pnewa = powera[:,0]/np.imag(Hnew)
-pnewac = [complex(i) for i in pnewa]
-pnew = [pnewm[i] * np.exp(-1*pnewac[i]) for i in range(len(pnewm))]
-
-
-plt.plot(fspec,powerm[:,0],'.',fspec,np.real(pnew))
-plt.ylim(-1,1)
-plt.show()
 
 
 
