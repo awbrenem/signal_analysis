@@ -7,7 +7,7 @@ import filter_wave_frequency
 
 Types of filters: 
 -Butter bandpass filter (butter_bandpass_filter.py)
-
+-FFT bandpass filter (fft_bandpass_filter.py)
 """
 
 
@@ -17,6 +17,9 @@ Types of filters:
 Butterworth bandpass filter routines 
 -------------------------------------------------------------------------------------------
 From https://stackoverflow.com/questions/12093594/how-to-implement-band-pass-butterworth-filter-with-scipy-signal-butter
+
+NOTE: This method (using sosfiltfilt) preserves signal phase!! (tested and verified)
+(see https://gist.github.com/junzis/e06eca03747fc194e322)
 
 #Example: 
 lowcut = 100
@@ -31,6 +34,7 @@ ps.plot_spectrogram(t,f,p,vr=[-100,-40],yr=yrspec, xr=trspec, yscale='linear')
 """
 
 def butter_bandpass(lowcut, highcut, fs, order=5):
+        from scipy.signal import butter
         nyq = 0.5 * fs
         low = lowcut / nyq
         high = highcut / nyq
@@ -38,10 +42,31 @@ def butter_bandpass(lowcut, highcut, fs, order=5):
         return sos
 
 def butter_bandpass_filter(data, lowcut, highcut, fs, order=5):
-        from scipy.signal import butter, sosfilt, sosfreqz
+        from scipy.signal import sosfiltfilt
         sos = butter_bandpass(lowcut, highcut, fs, order=order)
-        y = sosfilt(sos, data)
+        #y = sosfilt(sos, data)   #does NOT preserve signal phase
+        y = sosfiltfilt(sos, data) #preserves signal phase
+
+        """
+        # Plot the frequency response.
+        from scipy.signal import sosfreqz
+        w, h = sosfreqz(sos)
+        import matplotlib.pyplot as plt
+        import numpy as np
+        plt.subplot(2, 1, 1)
+        plt.plot(0.5*fs*w/np.pi, np.abs(h), 'b')
+        plt.plot(lowcut, 0.5*np.sqrt(2), 'ko')
+        plt.axvline(lowcut, color='k')
+        plt.xlim(0.1, 0.5*fs)
+        plt.title("Bandpass Filter Frequency Response")
+        plt.xlabel('Frequency [Hz]')
+        plt.xscale("log")
+        plt.grid()
+        plt.show()
+        """
+
         return y
+
 
 
 """
