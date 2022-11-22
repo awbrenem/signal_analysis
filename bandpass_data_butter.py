@@ -2,6 +2,18 @@
 Routine for bandpassing waveform data
 From https://stackoverflow.com/questions/12093594/how-to-implement-band-pass-butterworth-filter-with-scipy-signal-butter
 
+
+Example: 
+sys.path.append('/Users/abrenema/Desktop/code/Aaron/github/signal_analysis/')
+import bandpass_data_butter
+
+lowcut = 100
+highcut = 1000
+fs = 30000 #Samples/sec
+
+wfbp = bandpass_data_butter.butter_bandpass_filter(wf, lowcut, highcut,fs,order=9)
+
+
 """
 
 
