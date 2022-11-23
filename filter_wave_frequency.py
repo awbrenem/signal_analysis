@@ -7,6 +7,8 @@ import filter_wave_frequency
 
 Types of filters: 
 -Butter bandpass filter (butter_bandpass_filter.py)
+-Butter lowpass filter (butter_lowpass_filter.py)
+-Butter highpass filter (butter_highpass_filter.py)
 -FFT bandpass filter (fft_bandpass_filter.py)
 """
 
@@ -68,10 +70,42 @@ def butter_bandpass_filter(data, lowcut, highcut, fs, order=5):
         return y
 
 
+def butter_lowpass(lowcut, fs, order=5):
+        from scipy.signal import butter
+        nyq = 0.5 * fs
+        low = lowcut / nyq
+        sos = butter(order, low, analog=False, btype='low', output='sos')
+        return sos
 
+def butter_lowpass_filter(data, lowcut, fs, order=5):
+        from scipy.signal import sosfiltfilt
+        sos = butter_lowpass(lowcut, fs, order=order)
+        y = sosfiltfilt(sos, data) #preserves signal phase
+        return y
+
+def butter_highpass(highcut, fs, order=5):
+        from scipy.signal import butter
+        nyq = 0.5 * fs
+        high = highcut / nyq
+        sos = butter(order, high, analog=False, btype='high', output='sos')
+        return sos
+
+def butter_highpass_filter(data, highcut, fs, order=5):
+        from scipy.signal import sosfiltfilt
+        sos = butter_lowpass(highcut, fs, order=order)
+        y = sosfiltfilt(sos, data) #preserves signal phase
+        return y
+
+
+
+                
 """
 -------------------------------------------------------------------------------------------
 FFT bandpass (usable for purely real waveforms)
+
+***NEEDS TO BE TESTED*********
+***NEEDS TO BE TESTED*********
+***NEEDS TO BE TESTED*********
 -------------------------------------------------------------------------------------------
 
 #Example: 
