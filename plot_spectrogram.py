@@ -27,9 +27,10 @@ Input:
 """
 
 
-def plot_spectrogram(t,f,p,vr=[0,1], yscale='linear', zscale='log', xr=0, yr=0, ax=False):
+def plot_spectrogram(t,f,p,vr=[0,1], yscale='linear', zscale='log', xr=0, yr=0, ax=False, show=True, invert=False, plotkwargs={}):
 
     import matplotlib.pyplot as plt
+    import matplotlib
     import numpy as np
 
 
@@ -40,7 +41,7 @@ def plot_spectrogram(t,f,p,vr=[0,1], yscale='linear', zscale='log', xr=0, yr=0, 
     if zscale == 'log':
         pn = 10.*np.log10(p)
     else: 
-        pn = p
+        pn = p.copy()
 
 
 
@@ -48,9 +49,22 @@ def plot_spectrogram(t,f,p,vr=[0,1], yscale='linear', zscale='log', xr=0, yr=0, 
         fig, ax = plt.subplots()
 
 
+    #invert image or not
+    origin='lower'
+    if invert:
+        origin='upper'
+
+
     #Plot the spectrogram. Note that we need to force x,y axes to be defined exactly based on the range of data, otherwise image 
     #won't be displayed properly. 
-    im = ax.imshow(pn,vmin=vr[0],vmax=vr[1],cmap='turbo',aspect='auto', extent=[np.min(t),np.max(t),np.min(f),np.max(f)], origin='lower')
+
+    #plt.set_cmap('turbo')
+    #current_cmap = matplotlib.cm.get_cmap()
+    #current_cmap.set_bad(color='red')
+
+    #im = ax.imshow(pn,vmin=vr[0],vmax=vr[1],cmap='turbo',aspect='auto', extent=[np.min(t),np.max(t),np.min(f),np.max(f)], origin='lower', **plotkwargs)
+    im = ax.imshow(pn,vmin=vr[0],vmax=vr[1],cmap='turbo',aspect='auto', extent=[np.min(t),np.max(t),np.min(f),np.max(f)], origin=origin, **plotkwargs)
+    #im = ax.imshow(pn,vmin=vr[0],vmax=vr[1],aspect='auto', extent=[np.min(t),np.max(t),np.min(f),np.max(f)], origin='lower', **plotkwargs)
 
 
     #Now we can change to desired xrange and yrange
@@ -58,6 +72,7 @@ def plot_spectrogram(t,f,p,vr=[0,1], yscale='linear', zscale='log', xr=0, yr=0, 
     ax.set_ylim(yr[0],yr[1])
     ax.set_xlim(xr[0],xr[1])
 
-    plt.show()
+    if show == True:
+        plt.show()
 
     return pn
