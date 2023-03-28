@@ -17,17 +17,26 @@ by inputting the ax keyword from "fig, ax = plt.subplots()"
 Input:
     t -> array of x-axis values (e.g. times)
     f -> array of y-axis values (e.g. freqs)
-    p -> [t,f] sized array of image values (e.g. sliding spectra)
+    p -> [t,f] sized array of image values (e.g. sliding spectra from scipy.signal.spectrogram)
     yscale -> linear or log 
     zscale -> linear or log 
+        linear = don't modify input spectral values
+        log = take dB=10*log(p) of input spectral values
+        NOTE: scipy.signal.spectrogram will return V**2/Hz (density) or V**2 (spectrum) for an input waveform of V.
     xr -> xrange 
     yr -> yrange 
     ax -> from matplotlib's subplots (e.g. fig, ax = plt.subplots()) - only set if you want this plot to be a part of other plots.
 
+        Example using two subplots
+            fig, ax = plt.subplots(2)
+            ps.plot_spectrogram(t,f,p1,ax=ax[0])
+            ps.plot_spectrogram(t,f,p2,ax=ax[1])
+
+    invert -> flip the yscale upside down if set to True
 """
 
 
-def plot_spectrogram(t,f,p,vr=[0,1], yscale='linear', zscale='log', xr=0, yr=0, ax=False, show=True, invert=False, plotkwargs={}):
+def plot_spectrogram(t,f,p,vr=[0,1], yscale='linear', zscale='log', xr=0, yr=0, ax=False, show=True, invert=False, title='spec'):
 
     import matplotlib.pyplot as plt
     import matplotlib
@@ -63,8 +72,10 @@ def plot_spectrogram(t,f,p,vr=[0,1], yscale='linear', zscale='log', xr=0, yr=0, 
     #current_cmap.set_bad(color='red')
 
     #im = ax.imshow(pn,vmin=vr[0],vmax=vr[1],cmap='turbo',aspect='auto', extent=[np.min(t),np.max(t),np.min(f),np.max(f)], origin='lower', **plotkwargs)
-    im = ax.imshow(pn,vmin=vr[0],vmax=vr[1],cmap='turbo',aspect='auto', extent=[np.min(t),np.max(t),np.min(f),np.max(f)], origin=origin, **plotkwargs)
+    im = ax.imshow(pn,vmin=vr[0],vmax=vr[1],cmap='turbo',aspect='auto', extent=[np.min(t),np.max(t),np.min(f),np.max(f)], origin=origin)
     #im = ax.imshow(pn,vmin=vr[0],vmax=vr[1],aspect='auto', extent=[np.min(t),np.max(t),np.min(f),np.max(f)], origin='lower', **plotkwargs)
+
+    ax.set_title(title)
 
 
     #Now we can change to desired xrange and yrange
