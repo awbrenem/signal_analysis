@@ -92,7 +92,7 @@ def butter_highpass(highcut, fs, order=5):
 
 def butter_highpass_filter(data, highcut, fs, order=5):
         from scipy.signal import sosfiltfilt
-        sos = butter_lowpass(highcut, fs, order=order)
+        sos = butter_highpass(highcut, fs, order=order)
         y = sosfiltfilt(sos, data) #preserves signal phase
         return y
 
