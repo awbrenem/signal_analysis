@@ -16,8 +16,11 @@ def slice_spectrogram(tslice, tspec, spec, nsec=0):
     spec --> spectrogram power(amplitude) values
     nsec --> number of seconds to average over. Defaults to zero, which means no averaging over time
 
-    Returns: The power (for all freqs) at requested time averaged over "navg" time bins.
-            Also returns individual slices for each time bin used in average
+    Returns: (powavg) The power (for all freqs) at requested time averaged over "navg" time bins.
+             (powarr) Also returns individual slices for each time bin used in average
+             (tarr) The final times that lie b/t tslice and tslice + nsec
+
+    NOTE: take the abs value of complex spectra before passing
     """
 
     import numpy as np
@@ -33,20 +36,29 @@ def slice_spectrogram(tslice, tspec, spec, nsec=0):
     goo = np.where(tspec >= tslice)
 
     #extract data from start to end point and average
-    powgoo = np.abs(spec)[:,goo[0][0]:goo[0][navg]]
+    #powgoo = np.abs(spec)[:,goo[0][0]:goo[0][navg]]
+    powgoo = spec[:,goo[0][0]:goo[0][navg]]
+
     powavg = [0] * np.shape(powgoo)[0]
 
     for i in range(np.shape(powgoo)[0]):
         powavg[i] = np.average(powgoo[i,:])    
 
-    powarr = np.abs(spec)[:,goo[0][0:navg]]
+    #powarr = np.abs(spec)[:,goo[0][0:navg]]
+    powarr = spec[:,goo[0][0:navg]]
+    tarr = tspec[goo[0][0:navg]]
 
-    return powavg, powarr
+    return powavg, powarr, tarr
 
 
 
 
-def plot_spectrogram(t,f,p,vr=[0,1], yscale='linear', zscale='log', xr=0, yr=0, ax=False, show=True, invert=False, title='spec'):
+def plot_spectrogram(t,f,p,
+                     vr=[0,1], xr=0, yr=0, 
+                     yscale='linear', zscale='log', 
+                     ax=False, show=True, invert=False, 
+                     title='', xlabel='', ylabel='', 
+                     minzval=0, maxzval=0):
 
     """
     Plot large-array spectograms quickly in Python using imshow. 
@@ -76,7 +88,9 @@ def plot_spectrogram(t,f,p,vr=[0,1], yscale='linear', zscale='log', xr=0, yr=0, 
         xr -> xrange 
         yr -> yrange 
         ax -> from matplotlib's subplots (e.g. fig, ax = plt.subplots()) - only set if you want this plot to be a part of other plots.
-
+        minzval -> any values less than this will be assigned NaN
+        maxzval -> any values greater than this will be assigned NaN
+        
             ---------------------------------------------
             Example using two subplots
                 fig, ax = plt.subplots(2)
@@ -112,6 +126,11 @@ def plot_spectrogram(t,f,p,vr=[0,1], yscale='linear', zscale='log', xr=0, yr=0, 
         pn = p.copy()
 
 
+    if minzval != 0:
+        pn[pn < minzval] = "nan"
+    if maxzval != 0:
+        pn[pn > maxzval] = "nan"
+
 
     if not ax:
         fig, ax = plt.subplots()
@@ -134,8 +153,12 @@ def plot_spectrogram(t,f,p,vr=[0,1], yscale='linear', zscale='log', xr=0, yr=0, 
     im = ax.imshow(pn,vmin=vr[0],vmax=vr[1],cmap='turbo',aspect='auto', extent=[np.min(t),np.max(t),np.min(f),np.max(f)], origin=origin)
     #im = ax.imshow(pn,vmin=vr[0],vmax=vr[1],aspect='auto', extent=[np.min(t),np.max(t),np.min(f),np.max(f)], origin='lower', **plotkwargs)
 
-    ax.set_title(title)
-
+    if title != '':
+        ax.set_title(title)
+    if xlabel != '':
+        ax.set_xlabel(xlabel)
+    if ylabel != '':
+        ax.set_ylabel(ylabel)
 
     #Now we can change to desired xrange and yrange
     plt.yscale(yscale)
