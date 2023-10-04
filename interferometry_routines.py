@@ -32,6 +32,15 @@ def inter_fvsk(powspec,tpowspec,fpowspec,
     will be much larger in size than the coherence array, which requires averaging over a number of 
     time steps. This difference is accounted for in this code.
 
+    Inputs:
+    powspec, tpowspec, fpowspec --> power spectrum (NOT complex) and assoc. time and freq values
+    phasespec, tphasespec, fphasespec --> spectrum of phase values and assoc. time and freq values
+    receiver_spacing --> separation of "centers of potential" from interferometry measurement
+
+    nkbins --> number of bins in k-space
+    klim --> range of k-values (rad/m)
+    mean_max --> Since powspec is a larger array than phasespec (in general), I end up having to 
+        reduce its dimensionality to size phasespec. Do this by taking the mean/max of relevant bins
     """
 
 
@@ -44,7 +53,9 @@ def inter_fvsk(powspec,tpowspec,fpowspec,
 
     #final values will be array of size [nfreqs,nkbins]
     nfreqs = np.shape(fphasespec)[0]
-    pow_finv = np.empty((nfreqs,nkbins))
+    powK = np.empty((nfreqs,nkbins)) #array of wave power sorted by freq and k-value 
+
+     
 
     #time spacing
     tdelta = np.median(tphasespec - np.roll(tphasespec,1))
@@ -52,7 +63,8 @@ def inter_fvsk(powspec,tpowspec,fpowspec,
     #For each frequency
     for f in range(0,nfreqs-1,1):
         pslice = phasespec[f,:] #phase values for a particular freq and all times
-        kslice = [(3.1416/360)*i/receiver_spacing for i in pslice] #Change delta-phases into k-values (rad/m)
+        #kslice = [(3.1416/180)*i/receiver_spacing for i in pslice] #Change delta-phases into k-values (rad/m)
+        kslice = [np.radians(i)/receiver_spacing for i in pslice] #Change delta-phases into k-values (rad/m)
 
         #continue if we have finite k values at current freq slice
         if np.sum(kslice != 0):
@@ -96,12 +108,12 @@ def inter_fvsk(powspec,tpowspec,fpowspec,
                     #now we need to sum over all times (defined from smaller phase array)
                     if np.sum(powgoo) > 1e-100:  #avoid absurdly low values
                         if mean_max == 'max':
-                            pow_finv[f,k] = np.nanmax(powgoo)            
+                            powK[f,k] = np.nanmax(powgoo)            
                         else: 
-                            pow_finv[f,k] = np.mean(powgoo)            
+                            powK[f,k] = np.mean(powgoo)            
                     
 
-    return(pow_finv, kvals, fphasespec)
+    return(powK, kvals, fphasespec)
 
 
 
