@@ -8,30 +8,42 @@ def inter_fvsk(powspec,tpowspec,fpowspec,
                phasespec,tphasespec,fphasespec,
                receiver_spacing,
                nkbins=100,klim=[-2,2],
-               mean_max='max'):
+               mean_max='max',
+               plotresult=True):
     
 
     """
     Interferometry analysis f vs k plots, with wave power on z-axis. 
     (see interferometry_routines_call.py for example usage)
 
+    ------
     Reference:
     Lalti, A., Khotyaintsev, Y. V., & Graham, D. B. (2023). 
     Short-Wavelength Electrostatic Wave Measurement Using MMS Spacecraft
     JGR: Space Phys https://doi. org/10.1029/2022JA031150
 
-    Idea: use a coherence analysis to find the phase difference as a function of freq/time.
+    Graham, D. B., Y. V. Khotyaint-sev, A. Vaivads, and M. André (2016), 
+    Electrostatic solitary wavesand electrostatic waves at the magnetopause,
+    J. Geophys. Res.Space Physics,121, 3069–3092,doi:10.1002/2015JA021527.
+    ------
+
+    
+    Idea: From an interferometry coherence analysis we can find the phase difference as a function of freq/time.
     This gives us the k-vector spectrum from k*d = delta-phase. 
 
     For a select time interval of interest, bin the k-values for each frequency to make 
     a freq vs k plot, with the z-values being wave power. 
 
-    Can compare results to specific wave dispersion relations of f(k).
 
     NOTE: Generally the full resolution power array (what you get from FFTing the original waveform)
     will be much larger in size than the coherence array, which requires averaging over a number of 
     time steps. This difference is accounted for in this code.
 
+    NOTE: Can compare results to specific wave dispersion relations of f(k).
+    Assuming a linear dispersion relation, can then calculate the phase speed with the slope.
+        f = vph * (k/2*pi)
+
+        
     Inputs:
     powspec, tpowspec, fpowspec --> power spectrum (NOT complex) and assoc. time and freq values
     phasespec, tphasespec, fphasespec --> spectrum of phase values and assoc. time and freq values
@@ -111,7 +123,7 @@ def inter_fvsk(powspec,tpowspec,fpowspec,
                             powK[f,k] = np.nanmax(powgoo)            
                         else: 
                             powK[f,k] = np.mean(powgoo)            
-                    
+
 
     return(powK, kvals, fphasespec)
 
