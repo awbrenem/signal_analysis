@@ -58,7 +58,7 @@ def plot_spectrogram(t,f,p,
                      yscale='linear', zscale='log', 
                      ax=False, show=True, invert=False, 
                      title='', xlabel='', ylabel='', 
-                     minzval=0, maxzval=0):
+                     minzval=0, maxzval=0, cmap='turbo'):
 
     """
     Plot large-array spectograms quickly in Python using imshow. 
@@ -146,11 +146,12 @@ def plot_spectrogram(t,f,p,
     #won't be displayed properly. 
 
     #plt.set_cmap('turbo')
+    #plt.set_cmap('terrain')
     #current_cmap = matplotlib.cm.get_cmap()
     #current_cmap.set_bad(color='red')
 
     #im = ax.imshow(pn,vmin=vr[0],vmax=vr[1],cmap='turbo',aspect='auto', extent=[np.min(t),np.max(t),np.min(f),np.max(f)], origin='lower', **plotkwargs)
-    im = ax.imshow(pn,vmin=vr[0],vmax=vr[1],cmap='turbo',aspect='auto', extent=[np.min(t),np.max(t),np.min(f),np.max(f)], origin=origin)
+    im = ax.imshow(pn,vmin=vr[0],vmax=vr[1],cmap=cmap,aspect='auto', extent=[np.min(t),np.max(t),np.min(f),np.max(f)], origin=origin)
     #im = ax.imshow(pn,vmin=vr[0],vmax=vr[1],aspect='auto', extent=[np.min(t),np.max(t),np.min(f),np.max(f)], origin='lower', **plotkwargs)
 
     if title != '':
