@@ -24,16 +24,18 @@ using Endurance data
 """
 
 #Choose boom pairs and load waveforms
-vA = EFL('VLF32D')
-vB = EFL('VLF41D')
-#vA = EFL('VLF12D')
-#vB = EFL('VLF34D')
+#vAstr = 'VLF32D'
+#vBstr = 'VLF41D'
+vAstr = 'VLF13D'
+vBstr = 'VLF24D'
+vA = EFL(vAstr)
+vB = EFL(vBstr)
 wfA, tdat = vA.load_data_gainphase_corrected()
 wfB, tdat = vB.load_data_gainphase_corrected()
 
 #Phase flip probe pair for "sense" consistency (e.g. 41 --> 14)
 wfB = -wfB
-
+vBstr = '-'+vBstr
 #sample rate
 fs = vA.chnspecs['fs']
 
@@ -42,22 +44,18 @@ nps = 512
 fspec, tspec, powercA = signal.spectrogram(wfA, fs, nperseg=nps,noverlap=nps/2,window='hann',return_onesided=True,mode='complex')
 fspec, tspec, powercB = signal.spectrogram(wfB, fs, nperseg=nps,noverlap=nps/2,window='hann',return_onesided=True,mode='complex')
 
-#Get cross spectrum 
-#tchunk = 0.2  #sec
-tchunk = 0.05  #sec
 
-cohmin = 0.5  #Best to limit bad coherence values at the onset. Otherwise get a lot of salt/pepper noise in final result
-coh, phase, tchunks, freqs = correlation_analysis.cross_spectral_density_spectrogram(wfA,wfB,
-                                                                                     tdat,fs,tchunk,
-                                                                                     coh_min=cohmin,
-                                                                                     nperseg=512)
 
+cohmin = 0.75  #Best to limit bad coherence values at the onset. Otherwise get a lot of salt/pepper noise in final result
 
 #Reduce data to time range of interest [tz to tz+nsec]. 
 #(e.g. select wave packet of interest)
 #--Bernstein waves on upleg
-tz = 140 
-nsec = 6
+#tz = 140 
+#nsec = 20
+tz = 160 
+nsec = 1
+
 #--unknown power just prior to two-stream
 #tz = 882  
 #nsec = 4
@@ -67,41 +65,96 @@ nsec = 6
 #--two-stream
 #tz = 887
 #nsec = 2
+#--VLF hiss
+#tz = 472.3
+#nsec = 0.5
 
 
-pavg, phasearr, tphasearr = ps.slice_spectrogram(tz,tchunks,phase,nsec)
-cavg, coharr, tgoo = ps.slice_spectrogram(tz,tchunks,coh,nsec)
-powavg, powarr, tpowarr = ps.slice_spectrogram(tz,tspec,np.abs(powercA),nsec)
+
+g,coh,phase = correlation_analysis.interferometric_coherence_2D(powercA,powercB,3)
+
+
+
+goo = coh < 0.5
+coh[goo] = float("nan")
+phase[goo] = float("nan")
+
+phase = np.degrees(phase)
+
+
+
+#Reduce arrays to desired timerange
+goo, powercAz, tspecz = ps.slice_spectrogram(tz,tspec,np.abs(powercA),nsec)
+goo, powercBz, tpowercBz = ps.slice_spectrogram(tz,tspec,np.abs(powercA),nsec)
+goo, cohz, ttmp = ps.slice_spectrogram(tz,tspec,coh,nsec)
+goo, phasez, ttmp = ps.slice_spectrogram(tz,tspec,phase,nsec)
+
+
+
+
+
 
 receiver_spacing = 2.26 #meters -- effective length of spaced receiver
 
 
 
-#Get the f-k-power interferometry results
-fkpowspec, kvals, fvals = interf.inter_fvsk(np.abs(powarr),tpowarr,fspec, 
-                                         phasearr,tphasearr,freqs,
+#Plot full res results 
+fkpowspec, kvals, fvals = interf.inter_fvsk(np.abs(powercAz),tspecz,fspec, 
+                                         phasez,tspecz,fspec,
                                          receiver_spacing,
                                          mean_max='mean',
-                                         klim=[-4,4])
+                                         nkbins=200,
+                                         klim=[-2,2])
 
+
+#Find k-location of max power for every frequency
+pmaxvals = np.zeros(np.shape(fkpowspec))
+pmaxvals[:,:] = 1
+for f in range(len(fspec)):
+    cond = fkpowspec[f,:] == np.nanmax(fkpowspec[f,:])
+    pmaxvals[f,:] = pmaxvals[f,:]*cond
 
 
 #Plot the results (freq vs k)
 vr = [-45,-20]
 yr = [5000,8000]
-kr = [-3,3]
-titlegoo = 'slice from '+ str(tz) + '-' + str(tz + nsec) + ' sec'
-xr = [tz-20,tz+20]
+kr = [-2,2]
+titlegoo = 'slice from '+ str(tz) + '-' + str(tz + nsec) + ' sec\n' + vAstr + ' and ' + vBstr
+xr = [tz-3*nsec,tz+3*nsec]
 
-fig,axs = plt.subplots(4)
+
+fig,axs = plt.subplots(6)
 ps.plot_spectrogram(tspec,fspec,np.abs(powercA),vr=vr,yr=yr,xr=xr, yscale='linear',ax=axs[0],xlabel='time(s)',ylabel='power\nf(Hz)',title=titlegoo)
-ps.plot_spectrogram(tchunks,freqs,coh,vr=[0,1],zscale='linear',xr=xr,yr=yr,yscale='linear',ax=axs[1],xlabel='time(s)',ylabel='Coherence**2\nf(Hz)')
-ps.plot_spectrogram(tchunks,freqs,np.abs(phase),vr=[0,180],zscale='linear',xr=xr,yr=yr,yscale='linear',ax=axs[2],xlabel='time(s)',ylabel='|Phase|(0-180deg)\nf(Hz)',cmap='PiYG')
-ps.plot_spectrogram(kvals,freqs,fkpowspec,vr=vr,xr=kr,yr=yr,yscale='linear',ax=axs[3],minzval=-120,maxzval=10,xlabel='k(rad/m)',ylabel='f(Hz)')
+ps.plot_spectrogram(tspec,fspec,np.abs(powercB),vr=vr,yr=yr,xr=xr, yscale='linear',ax=axs[1],xlabel='time(s)',ylabel='power\nf(Hz)')
+ps.plot_spectrogram(tspec,fspec,coh,vr=[0,1],zscale='linear',xr=xr,yr=yr,yscale='linear',ax=axs[2],xlabel='time(s)',ylabel='Coherence**2\nf(Hz)')
+#ps.plot_spectrogram(tspec,fspec,np.abs(phase),vr=[0,180],zscale='linear',xr=xr,yr=yr,yscale='linear',ax=axs[3],xlabel='time(s)',ylabel='|Phase|(0-180deg)\nf(Hz)',cmap='PiYG')
+ps.plot_spectrogram(tspec,fspec,np.abs(phase),vr=[0,180],zscale='linear',xr=xr,yr=yr,yscale='linear',ax=axs[3],xlabel='time(s)',ylabel='|Phase|(0-180deg)\nf(Hz)',cmap='Spectral')
+ps.plot_spectrogram(kvals,fvals,fkpowspec,vr=vr,xr=kr,yr=yr,yscale='linear',ax=axs[4],minzval=-120,maxzval=10,xlabel='k(rad/m)',ylabel='f(Hz)')
+ps.plot_spectrogram(kvals,fvals,pmaxvals,vr=[0,2],xr=kr,yr=yr,zscale='linear',yscale='linear',ax=axs[5],minzval=-120,maxzval=10,xlabel='k(rad/m)',ylabel='f(Hz)',cmap='Greys')
+
 for i in range(3): axs[i].axvline(tz)
 for i in range(3): axs[i].axvline(tz+nsec)
 
+#plt.subplots_adjust(bottom=0.1, right=0.8, top=0.9)
+#cax = plt.axes((0.85,0.1,0.075,0.8))
+#plt.colorbar(cax=cax)
+
+print('h')
 
 
+
+print('h')
+
+
+
+
+
+
+
+
+
+#TEST COHERENCE CALCULATION 
+
+ctst,ptst,ttst,ftst = cohtst(wfA,wfB,tdat,fs,nperseg=1024,coh_min=0)
 
 print('h')
