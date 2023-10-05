@@ -8,8 +8,7 @@ def inter_fvsk(powspec,tpowspec,fpowspec,
                phasespec,tphasespec,fphasespec,
                receiver_spacing,
                nkbins=100,klim=[-2,2],
-               mean_max='max',
-               plotresult=True):
+               mean_max='max'):
     
 
     """
@@ -84,8 +83,13 @@ def inter_fvsk(powspec,tpowspec,fpowspec,
             for k in range(0,nkbins-1,1):
 
                 #Extract the power values corresponding to finite k values.
-                #--Note that the power array likely has more elements than phase array. So, we'll need to extract all power values
-                #--in current frequency and k range
+
+
+                #--Note that the power array can have more elements than phase array. 
+                #--If so, we'll need to extract all power values in current frequency and k range.
+                #--If not, then "else" loop is a simpler version of this "if" loop
+                #*****I've tested this when the two have the same shape and it works fine. 
+
                 gootimeIDX = np.where((kslice >= kvals[k]) & (kslice < kvals[k+1])) #time indices satisfying condition
                 powgoo = np.empty(len(gootimeIDX[0])) #Can be multiple times for current freq that have k-values in current range (b/c we're considering all times)
 
@@ -117,12 +121,15 @@ def inter_fvsk(powspec,tpowspec,fpowspec,
                             powgoo[t] = np.mean(powarr_subset)
 
 
+
                     #now we need to sum over all times (defined from smaller phase array)
                     if np.sum(powgoo) > 1e-100:  #avoid absurdly low values
                         if mean_max == 'max':
                             powK[f,k] = np.nanmax(powgoo)            
                         else: 
                             powK[f,k] = np.mean(powgoo)            
+
+
 
 
     return(powK, kvals, fphasespec)
