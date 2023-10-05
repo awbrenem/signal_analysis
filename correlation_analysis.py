@@ -3,6 +3,8 @@ Functions for correlation analysis of signals
 
 psd - compute simple 1D power spectral density
 cross_spectral_density - compute 1D coherence and phase from calculation of CSD
+interferometric_coherence_2D(Z1,Z2,N): essentially the same as cross_spectral_density_spectrogram but can return 
+    gain/phase values at higher resolution. Better to use this one.
 cross_spectral_density_spectrogram - compute coherence and phase in 2D spectrogram form from calculation of CSD
 signal_coherence - Compute 1D coherence vs freq
 auto_correlation 
@@ -10,10 +12,10 @@ cross_correlation
 """
 
 
-"""
-Compute simple power spectral density
-"""
 def psd(wf, tvals, fs, tr):
+    """
+    Compute simple power spectral density
+    """
         
     import scipy.signal
     import numpy as np
@@ -36,10 +38,11 @@ def psd(wf, tvals, fs, tr):
     return S, f
 
 
-"""
-Compute the coherence vs freq from scipy.signal.coherence
-"""
 def signal_coherence(wf1,wf2,fs,nperseg=1024,plot=False):
+    """
+    Compute the coherence vs freq from scipy.signal.coherence
+    """
+
     from scipy import signal
 
     f, Cxy = signal.coherence(wf1, wf2, fs, nperseg=nperseg)
@@ -55,19 +58,20 @@ def signal_coherence(wf1,wf2,fs,nperseg=1024,plot=False):
     return Cxy, f
 
 
-"""
-Calculate coherence and phase from a cross spectral density analysis (matplotlib mlab csd)
-Coherence defined as: 
-    Cxy(f) = |Pxy(f)|^2 / (psd1 * psd2)
-    with units of amplitude**2/Hz
-
-(for the spectrogram version use cross_spectral_density_spectrogram)
-
-https://stackoverflow.com/questions/21647120/how-to-use-the-cross-spectral-density-to-calculate-the-phase-shift-of-two-relate 
-
-"""
 
 def cross_spectral_density(wf1,wf2,fs,nperseg=256,plotshow=False):
+    """
+    Calculate coherence and phase from a cross spectral density analysis (matplotlib mlab csd)
+    Coherence defined as: 
+        Cxy(f) = |Pxy(f)|^2 / (psd1 * psd2)
+        with units of amplitude**2/Hz
+
+    (for the spectrogram version use cross_spectral_density_spectrogram)
+
+    https://stackoverflow.com/questions/21647120/how-to-use-the-cross-spectral-density-to-calculate-the-phase-shift-of-two-relate 
+
+    """
+
     from matplotlib import mlab
     import matplotlib.pyplot as plt
     import numpy as np
@@ -92,16 +96,53 @@ def cross_spectral_density(wf1,wf2,fs,nperseg=256,plotshow=False):
     
 
 
-"""
-Compute the sliding spectrogram of the cross spectral density (Pxy(f):  see SciPy.signal.csd).
-Returns the coherence and phase. Coherence defined as: 
-    Cxy(f) = |Pxy(f)|^2 / (psd1 * psd2)
-    with units of amplitude**2/Hz
 
-    coh_min -> set to remove all coherence/phase data below this coherence threshold.
-    
-"""
+def interferometric_coherence_2D(Z1,Z2,N):
+    """
+    https://elisecolin.medium.com/why-2d-convolutions-everywhere-in-sar-imaging-583e046e4b1c
+
+    Same result as cross_spectral_density_spectrogram but with better resolution. 
+    That one will output phase and coherence arrays that are smaller than the power array taken from 
+    FFT'ing the input waveforms. This routine, however, will output arrays of the same size. 
+
+
+    (For use see interferometry_routines_call.py)
+
+    Input:
+        Z1, Z2 --> complex spectra ("images") of wave power
+        N --> 2D blurring window. N must be large enough for the estimate to be robust, 
+                but small enough not to blur the transitions between different backscattering zones.
+                Try N~few 
+
+    """
+    import numpy as np 
+    from scipy import signal
+
+    win = np.ones((N,N))
+    num = signal.convolve2d(Z1*np.conj(Z2), win, mode='same')
+    den1 = signal.convolve2d(Z2*np.conj(Z2), win, mode='same')
+    den2 = signal.convolve2d(Z1*np.conj(Z1), win, mode='same')
+
+    gamma=num/np.sqrt(np.abs(den1)*np.abs(den2))
+    coherence=np.abs(gamma)
+    phase=np.angle(gamma)
+
+    return gamma,coherence,phase
+
+
 def cross_spectral_density_spectrogram(wf1,wf2,times,fs,timechunk,nperseg=1024,plot=False,coh_min=0):
+    """
+    NOTE: consider using interferometric_coherence_2D instead. 
+
+    Compute the sliding spectrogram of the cross spectral density (Pxy(f):  see SciPy.signal.csd).
+    Returns the coherence, phase, and power spectrum (along with time and freq values). 
+    Coherence defined as: 
+        Cxy(f) = |Pxy(f)|^2 / (psd1 * psd2)
+        with units of amplitude**2/Hz
+
+        coh_min -> set to remove all coherence/phase data below this coherence threshold.
+        
+    """
 
     from matplotlib import mlab
     import numpy as np 
@@ -127,6 +168,7 @@ def cross_spectral_density_spectrogram(wf1,wf2,times,fs,timechunk,nperseg=1024,p
         psd1, f = mlab.psd(wf1[i*ios:(i+1)*ios], Fs=fs, scale_by_freq=True, NFFT=nperseg)
         psd2, f = mlab.psd(wf2[i*ios:(i+1)*ios], Fs=fs, scale_by_freq=True, NFFT=nperseg)
  
+        #angle of complex PSD using arctan2 [see Eqn 2, Graham+16; doi:10.1002/2015JA021527]
         phase[:,i] = np.angle(Pxy[:,i],deg=True)
         coherence[:,i] = np.abs(Pxy[:,i])**2 / (psd1 * psd2)
 
@@ -154,13 +196,14 @@ def cross_spectral_density_spectrogram(wf1,wf2,times,fs,timechunk,nperseg=1024,p
 
 
 
-"""
-Auto correlation
-***********************************************
-WARNING: this will always decrease with lag due to the decreasing number of overlap values as window is slid along
-PROBABLY FIND A BETTER WAY. 
-"""
 def auto_correlation(wf):
+    """
+    Auto correlation
+    ***********************************************
+    WARNING: this will always decrease with lag due to the decreasing number of overlap values as window is slid along
+    PROBABLY FIND A BETTER WAY. 
+    """
+
     import numpy as np 
 
     # Normalized data
@@ -172,12 +215,12 @@ def auto_correlation(wf):
     return acorr
 
 
-"""
-******************************************
-NOT IMPLEMENTED YET
-******************************************
-"""
 def cross_correlation(wf):
+    """
+    ******************************************
+    NOT IMPLEMENTED YET
+    ******************************************
+    """
 
     x = np.arange(128) / 128
     sig = np.sin(2 * np.pi * x)
