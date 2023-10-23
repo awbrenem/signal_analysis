@@ -2,7 +2,8 @@
 Functions for correlation analysis of signals
 
 psd - compute simple 1D power spectral density
-cross_spectral_density - compute 1D coherence and phase from calculation of CSD
+phase_cc_timelag_analysis - calculate running phase vs time using a cc lag analysis. 
+cross_spectral_density - compute 1D coherence and phase vs freq from calculation of CSD
 interferometric_coherence_2D(Z1,Z2,N): essentially the same as cross_spectral_density_spectrogram but can return 
     gain/phase values at higher resolution. Better to use this one.
 cross_spectral_density_spectrogram - compute coherence and phase in 2D spectrogram form from calculation of CSD
@@ -38,6 +39,75 @@ def psd(wf, tvals, fs, tr):
     return S, f
 
 
+
+
+def phase_cc_timelag_analysis(wf1,wf2,times,fs,ccstep=10):
+
+    """
+    Calculate running phase vs time using a cc lag analysis. 
+    Uses the FFT to determine the frequency of peak power, so 
+    works the best when the signal in question is fairly sinusoidal. 
+
+
+    wf1, wf2 - input waveforms
+    times - times of each waveform must be the same 
+    fs - sample rate (#/sec)
+    ccstep - helps to determine the stepsize
+
+    Outputs the phases (deg) and times for the phase bins
+    """
+
+    import numpy as np
+    from scipy import signal
+
+
+    #determine the dominant wave period to turn lags into phases
+    tmp = np.abs(np.fft.rfft(wf1))
+    tmpf = np.fft.rfftfreq(len(times), d=1/fs)
+    fmax = tmpf[np.argmax(tmp)]  #freq of max power 
+
+
+    lagmax = (1/fmax) * fs      #number of data points in a single period at peak power
+
+
+    stepsize = (1/fmax)*ccstep
+    nsteppts = int(stepsize * fs)
+    nsteps = int(np.floor((np.nanmax(times) - np.nanmin(times))/stepsize))
+
+
+    bb = 0
+    uu = nsteppts
+    phase = np.zeros(nsteps)
+    phaseT = np.zeros(nsteps)
+
+    for qq in range(nsteps):
+
+        v1t = wf1[bb:uu]
+        v2t = wf2[bb:uu]
+        v1tx = times[bb:uu]
+
+        corr = signal.correlate(v1t,v2t)
+        corr /= np.max(corr)
+        lags = signal.correlation_lags(len(v1t), len(v2t)) / fs
+        lagmax = lags[np.argmax(corr)]
+
+        #delay time as fraction of signal period
+        frac_period = 100 * lagmax / (1/fmax)
+        #turn the delay time into a phase
+        phase[qq] = 360*frac_period / 100
+
+        #midpoint time for each chunk
+        phaseT[qq] = (v1tx[len(v1tx)-1] + v1tx[0]) / 2
+
+        bb += nsteppts
+        uu += nsteppts
+
+
+    return phase, phaseT
+
+
+
+
 def signal_coherence(wf1,wf2,fs,nperseg=1024,plot=False):
     """
     Compute the coherence vs freq from scipy.signal.coherence
@@ -61,7 +131,7 @@ def signal_coherence(wf1,wf2,fs,nperseg=1024,plot=False):
 
 def cross_spectral_density(wf1,wf2,fs,nperseg=256,plotshow=False):
     """
-    Calculate coherence and phase from a cross spectral density analysis (matplotlib mlab csd)
+    Calculate 1D coherence and phase vs freq from a cross spectral density analysis (matplotlib mlab csd)
     Coherence defined as: 
         Cxy(f) = |Pxy(f)|^2 / (psd1 * psd2)
         with units of amplitude**2/Hz
