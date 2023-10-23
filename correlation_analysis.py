@@ -103,6 +103,9 @@ def phase_cc_timelag_analysis(wf1,wf2,times,fs,ccstep=10):
         uu += nsteppts
 
 
+    #wrap phase to range -180 to 180 
+    phase = np.degrees((np.radians(phase) + np.pi) % (2 * np.pi) - np.pi)
+
     return phase, phaseT
 
 
