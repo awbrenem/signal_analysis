@@ -1,6 +1,10 @@
 """
 Routines for performing interferometry analysis 
 
+NOTE: this technique only makes sense for parallel, spaced antennas. 
+If the antennas are perpendicular, the ~90 deg phase shift in waves will be interpreted as a 
+large k-value (k*d = delta-phase)
+
 """
 
 
@@ -45,8 +49,8 @@ def inter_fvsk(powspec,tpowspec,fpowspec,
         
     Inputs:
     powspec, tpowspec, fpowspec --> power spectrum (NOT complex) and assoc. time and freq values
-    phasespec, tphasespec, fphasespec --> spectrum of phase values and assoc. time and freq values
-    receiver_spacing --> separation of "centers of potential" from interferometry measurement
+    phasespec, tphasespec, fphasespec --> spectrum of phase values (radians) and assoc. time (s) and freq (Hz) values
+    receiver_spacing --> separation (m) of "centers of potential" from interferometry measurement
 
     nkbins --> number of bins in k-space
     klim --> range of k-values (rad/m)
@@ -64,21 +68,99 @@ def inter_fvsk(powspec,tpowspec,fpowspec,
 
     #final values will be array of size [nfreqs,nkbins]
     nfreqs = np.shape(fphasespec)[0]
-    powK = np.empty((nfreqs,nkbins)) #array of wave power sorted by freq and k-value 
+    powK = np.zeros((nfreqs,nkbins)) #array of wave power sorted by freq and k-value 
 
      
 
     #time spacing
     tdelta = np.median(tphasespec - np.roll(tphasespec,1))
 
+    #------------------
+    #------------------
+    #------------------
+    #SIMPLE VERSION ASSUMING THAT POWSPEC AND PHASESPEC HAVE SAME SIZE
+    #------------------
+    #------------------
+    #------------------
+
     #For each frequency
     for f in range(0,nfreqs-1,1):
         pslice = phasespec[f,:] #phase values for a particular freq and all times
         #kslice = [(3.1416/180)*i/receiver_spacing for i in pslice] #Change delta-phases into k-values (rad/m)
-        kslice = [np.radians(i)/receiver_spacing for i in pslice] #Change delta-phases into k-values (rad/m)
+        kslice = np.array([i/receiver_spacing for i in pslice]) #Change delta-phases into k-values (rad/m)
 
         #continue if we have finite k values at current freq slice
-        if np.sum(kslice != 0):
+        if np.nansum(kslice) != 0:
+            #for current freq slice bin the k-values for all times
+            for k in range(0,nkbins-1,1):
+
+                #Extract the power values corresponding to finite k values.
+
+                gootimeIDX = np.where((kslice >= kvals[k]) & (kslice < kvals[k+1])) #time indices satisfying condition
+                powgoo = np.zeros(len(gootimeIDX[0])) #Can be multiple times for current freq that have k-values in current range (b/c we're considering all times)
+
+
+                if len(gootimeIDX[0]) != 0:
+
+                    powgoo = powspec[f,gootimeIDX]
+                
+                    if mean_max == 'max':            
+                        powK[f,k] = np.nanmean(powgoo)
+                    else:
+                        powK[f,k] = np.nanmax(powgoo)
+
+                    
+                    
+
+                    """
+                    #for each time that has a relevant k-value
+                    for t in range(0,len(gootimeIDX[0]),1):
+                        
+                        ##relevant time range and indices of (larger) power array to average over 
+                        #if t < len(gootimeIDX[0])-1:
+                        #    tgoo = [tphasespec[t],tphasespec[t+1]]
+                        #else:
+                        #    tgoo = [tphasespec[t],tphasespec[t]+tdelta] #populate last array element
+                        #trange_powspecIDX = np.where((tpowspec >= tgoo[0]) & (tpowspec <= tgoo[1]))[0]
+                        #trange_powspecIDX = [np.min(trange_powspecIDX), np.max(trange_powspecIDX)]
+
+
+                        powarr_subset = powspec[f,:]
+
+                        #**********************************
+                        #---ISSUE: EVERY TIME K INDEX IS UPDATED
+                        #   POWARR_SUBSET GETS RESET TO 0.00010887 
+                        #WHY IS THIS HAPPENING????
+                        if mean_max == 'max':
+                            if np.sum(powarr_subset) != 0:
+                                #powgoo[t] = np.nanmax(powarr_subset)
+                                powgoo[t] = np.median(powarr_subset)
+                            else: 
+                                powgoo[t] = float("nan")
+                        else: 
+                            powgoo[t] = np.mean(powarr_subset)
+                        print('h')
+
+
+                    #now we need to sum over all times (defined from smaller phase array)
+                    if np.sum(powgoo) > 1e-100:  #avoid absurdly low values
+                        if mean_max == 'max':
+                            powK[f,k] = np.nanmax(powgoo)            
+                        else: 
+                            powK[f,k] = np.mean(powgoo)            
+
+                    """
+
+
+    """
+    #For each frequency
+    for f in range(0,nfreqs-1,1):
+        pslice = phasespec[f,:] #phase values for a particular freq and all times
+        #kslice = [(3.1416/180)*i/receiver_spacing for i in pslice] #Change delta-phases into k-values (rad/m)
+        kslice = [i/receiver_spacing for i in pslice] #Change delta-phases into k-values (rad/m)
+
+        #continue if we have finite k values at current freq slice
+        if np.nansum(kslice) != 0:
             #for current freq slice bin the k-values for all times
             for k in range(0,nkbins-1,1):
 
@@ -91,7 +173,7 @@ def inter_fvsk(powspec,tpowspec,fpowspec,
                 #*****I've tested this when the two have the same shape and it works fine. 
 
                 gootimeIDX = np.where((kslice >= kvals[k]) & (kslice < kvals[k+1])) #time indices satisfying condition
-                powgoo = np.empty(len(gootimeIDX[0])) #Can be multiple times for current freq that have k-values in current range (b/c we're considering all times)
+                powgoo = np.zeros(len(gootimeIDX[0])) #Can be multiple times for current freq that have k-values in current range (b/c we're considering all times)
 
                 if len(gootimeIDX[0]) != 0:
 
@@ -114,12 +196,21 @@ def inter_fvsk(powspec,tpowspec,fpowspec,
                         #For current time (defined from smaller phase array) can have 
                         #multiple freqs and times in larger array. Select these 
                         #and find their average/max value 
-                        powarr_subset = powspec[frange_powspecIDX[0]:frange_powspecIDX[1],trange_powspecIDX[0]:trange_powspecIDX[1]]
+                        powarr_subset = powspec[frange_powspecIDX[0]:frange_powspecIDX[1],trange_powspecIDX[0]:trange_powspecIDX[1]][0]
+
+                        #**********************************
+                        #---ISSUE: EVERY TIME K INDEX IS UPDATED
+                        #   POWARR_SUBSET GETS RESET TO 0.00010887 
+                        #WHY IS THIS HAPPENING????
                         if mean_max == 'max':
-                            powgoo[t] = np.nanmax(powarr_subset)
+                            if np.sum(powarr_subset) != 0:
+                                #powgoo[t] = np.nanmax(powarr_subset)
+                                powgoo[t] = np.median(powarr_subset)
+                            else: 
+                                powgoo[t] = float("nan")
                         else: 
                             powgoo[t] = np.mean(powarr_subset)
-
+                        print('h')
 
 
                     #now we need to sum over all times (defined from smaller phase array)
@@ -128,8 +219,7 @@ def inter_fvsk(powspec,tpowspec,fpowspec,
                             powK[f,k] = np.nanmax(powgoo)            
                         else: 
                             powK[f,k] = np.mean(powgoo)            
-
-
+    """
 
 
     return(powK, kvals, fphasespec)
