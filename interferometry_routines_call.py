@@ -1,6 +1,9 @@
 """
 Example setup for calls to interferometry_routines.py 
 
+NOTE: this technique only makes sense for parallel, spaced antennas. 
+If the antennas are perpendicular, the ~90 deg phase shift in waves will be interpreted as a 
+large k-value. 
 """
 
 
@@ -18,26 +21,36 @@ import matplotlib.pyplot as plt
 
 
 
-"""
-Example 1: Do a freq (yaxis) vs k-value (xaxis) vs |E|^2 (zaxis) interferometry analysis
-using Endurance data
-"""
+#-------------------------------------------------------------
+#Example 1: Do a freq (yaxis) vs k-value (xaxis) vs |E|^2 (zaxis) interferometry analysis
+#using Endurance data
+#-------------------------------------------------------------
 
 #Choose boom pairs and load waveforms
-#vAstr = 'VLF32D'
-#vBstr = 'VLF41D'
-vAstr = 'VLF13D'
-vBstr = 'VLF24D'
+vAstr = 'VLF32D'
+vBstr = 'VLF41D'
+#vAstr = 'VLF13D'
+#vBstr = 'VLF24D'
+#vAstr = 'VLF12D'
+#vBstr = 'VLF34D'
+
+#Load Endurance waveform
 vA = EFL(vAstr)
 vB = EFL(vBstr)
 wfA, tdat = vA.load_data_gainphase_corrected()
 wfB, tdat = vB.load_data_gainphase_corrected()
+
 
 #Phase flip probe pair for "sense" consistency (e.g. 41 --> 14)
 wfB = -wfB
 vBstr = '-'+vBstr
 #sample rate
 fs = vA.chnspecs['fs']
+
+
+
+#---------------------------------------------------------------------------
+
 
 #Get complex power spectrum. This contains phase info that will be used to calculate phase differences
 nps = 512
@@ -97,17 +110,22 @@ goo, phasez, ttmp = ps.slice_spectrogram(tz,tspec,phase,nsec)
 receiver_spacing = 2.26 #meters -- effective length of spaced receiver
 
 
-
+fkpowspec = 0 
+kvals = 0
+fvals = 0
 #Plot full res results 
+
+del(fkpowspec, kvals, fvals)
 fkpowspec, kvals, fvals = interf.inter_fvsk(np.abs(powercAz),tspecz,fspec, 
                                          phasez,tspecz,fspec,
                                          receiver_spacing,
-                                         mean_max='mean',
+                                         mean_max='max',
                                          nkbins=200,
                                          klim=[-2,2])
 
 
 #Find k-location of max power for every frequency
+#---QUITE SURE THIS LOOP IS WORKING
 pmaxvals = np.zeros(np.shape(fkpowspec))
 pmaxvals[:,:] = 1
 for f in range(len(fspec)):
@@ -117,8 +135,8 @@ for f in range(len(fspec)):
 
 #Plot the results (freq vs k)
 vr = [-45,-20]
-yr = [5000,8000]
-kr = [-2,2]
+yr = [5000,7500]
+kr = [-0.5,0.5]
 titlegoo = 'slice from '+ str(tz) + '-' + str(tz + nsec) + ' sec\n' + vAstr + ' and ' + vBstr
 xr = [tz-3*nsec,tz+3*nsec]
 
@@ -148,13 +166,22 @@ print('h')
 
 
 
-
-
-
-
-
 #TEST COHERENCE CALCULATION 
 
 ctst,ptst,ttst,ftst = cohtst(wfA,wfB,tdat,fs,nperseg=1024,coh_min=0)
 
 print('h')
+
+
+
+
+
+
+
+
+
+
+
+
+
+
