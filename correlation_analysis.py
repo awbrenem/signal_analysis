@@ -61,6 +61,11 @@ def phase_cc_timelag_analysis(wf1,wf2,times,fs,ccstep=10):
     from scipy import signal
 
 
+    #normalize waveforms
+    wf1 /= np.nanmax(wf1)
+    wf2 /= np.nanmax(wf2)
+
+
     #determine the dominant wave period to turn lags into phases
     tmp = np.abs(np.fft.rfft(wf1))
     tmpf = np.fft.rfftfreq(len(times), d=1/fs)
@@ -198,7 +203,7 @@ def interferometric_coherence_2D(Z1,Z2,N):
 
     gamma=num/np.sqrt(np.abs(den1)*np.abs(den2))
     coherence=np.abs(gamma)
-    phase=np.angle(gamma)
+    phase= -1 * np.angle(gamma)  #-1 to define phase sense as + in the direction of probe that measured Z1
 
     return gamma,coherence,phase
 
