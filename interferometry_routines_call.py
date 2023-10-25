@@ -61,7 +61,7 @@ import matplotlib.pyplot as plt
 #using Endurance data
 #-------------------------------------------------------------
 
-#---Choose interferometry pair
+#---interferometry pairs
 #NOTE: positive sense of phase defined as pointing towards center of potential of "wfA"
 #e.g. y-hat':  wfA = wf32; wfB = wf14
 #So, for Endurance the interferometry pairs are 
@@ -69,40 +69,51 @@ import matplotlib.pyplot as plt
 #or vAstr = 'VLF13D' and vBstr = 'VLF24D' (which will be flipped in sign)
 
 #x-hat'
-#vAstr = 'VLF13D'
-#vBstr = 'VLF24D'
+vAstrx = 'VLF13D'
+vBstrx = 'VLF24D'
 
 #y-hat'
-vAstr = 'VLF32D'
-vBstr = 'VLF41D'
+vAstry = 'VLF32D'
+vBstry = 'VLF41D'
 
-#main booms
-#vAstr = 'VLF12D'
-#vBstr = 'VLF34D'
 
 
 #Load Endurance waveform
-vA = EFL(vAstr)
-vB = EFL(vBstr)
-wfA, tdat = vA.load_data_gainphase_corrected()
-wfB, tdat = vB.load_data_gainphase_corrected()
+vAx = EFL(vAstrx)
+vBx = EFL(vBstrx)
+wfAx, tdatx = vAx.load_data_gainphase_corrected()
+wfBx, tdatx = vBx.load_data_gainphase_corrected()
+vAy = EFL(vAstry)
+vBy = EFL(vBstry)
+wfAy, tdaty = vAy.load_data_gainphase_corrected()
+wfBy, tdaty = vBy.load_data_gainphase_corrected()
 
 
 
 #Phase flip probe pair for "sense" consistency 
 # 41 --> 14  and  24 --> 42
-gooA = (vAstr == 'VLF24D' or vAstr == 'VLF41D')
+gooA = (vAstrx == 'VLF24D' or vAstrx == 'VLF41D')
 if gooA:
-    wfA *= -1
-    vAstr = '-' + vAstr
-gooB = (vBstr == 'VLF24D' or vBstr == 'VLF41D')
+    wfAx *= -1
+    vAstrx = '-' + vAstrx
+gooB = (vBstrx == 'VLF24D' or vBstrx == 'VLF41D')
 if gooB:
-    wfB *= -1
-    vBstr = '-' + vBstr
+    wfBx *= -1
+    vBstrx = '-' + vBstrx
+
+gooA = (vAstry == 'VLF24D' or vAstry == 'VLF41D')
+if gooA:
+    wfAy *= -1
+    vAstry = '-' + vAstry
+gooB = (vBstry == 'VLF24D' or vBstry == 'VLF41D')
+if gooB:
+    wfBy *= -1
+    vBstry = '-' + vBstry
+
 
 
 #sample rate
-fs = vA.chnspecs['fs']
+fs = vAx.chnspecs['fs']
 
 
 
@@ -111,8 +122,10 @@ fs = vA.chnspecs['fs']
 
 #Get complex power spectrum. This contains phase info that will be used to calculate phase differences
 nps = 1024
-fspec, tspec, powercA = signal.spectrogram(wfA, fs, nperseg=nps,noverlap=nps/2,window='hann',return_onesided=True,mode='complex')
-fspec, tspec, powercB = signal.spectrogram(wfB, fs, nperseg=nps,noverlap=nps/2,window='hann',return_onesided=True,mode='complex')
+fspecx, tspecx, powercAx = signal.spectrogram(wfAx, fs, nperseg=nps,noverlap=nps/2,window='hann',return_onesided=True,mode='complex')
+fspecx, tspecx, powercBx = signal.spectrogram(wfBx, fs, nperseg=nps,noverlap=nps/2,window='hann',return_onesided=True,mode='complex')
+fspecy, tspecy, powercAy = signal.spectrogram(wfAy, fs, nperseg=nps,noverlap=nps/2,window='hann',return_onesided=True,mode='complex')
+fspecy, tspecy, powercBy = signal.spectrogram(wfBy, fs, nperseg=nps,noverlap=nps/2,window='hann',return_onesided=True,mode='complex')
 
 
 
@@ -121,23 +134,39 @@ cohmin = 0.5  #Best to limit bad coherence values at the onset. Otherwise get a 
 #Reduce data to time range of interest [tz to tz+nsec]. 
 #(e.g. select wave packet of interest)
 #--Bernstein waves on upleg
+#vr = [-45,-20]
+#ys = 'linear'
+#yr = [5500,7500]
+#kr = [-50,50]
 #tz = 140 
 #nsec = 20
 #tz = 160 
 #nsec = 1
-#k-hat' = -15 @6300 Hz
+
 
 #--unknown power just prior to two-stream
+#vr = [-45,-20]
+#ys = 'linear'
+#yr = [0,2000]
+#kr = [-50,50]
 #tz = 882  
 #nsec = 4
 #--attitude adjustment maneuver (returns noise due to no coherence)
 #tz = 595  
 #nsec = 2
 #--two-stream
-#tz = 887
+#vr = [-45,-20]
+#ys = 'linear'
+#yr = [0,500]
+#kr = [-50,50]
+#tz = 888
 #nsec = 2
 #--VLF hiss
-tz = 472.3
+vr = [-45,-20]
+ys = 'linear'
+yr = [5000,9000]
+kr = [-25,25]
+tz = 472.
 nsec = 0.5
 
 
@@ -145,99 +174,127 @@ nsec = 0.5
 #NOTE: + sense of phase defined as pointing towards center of potential of "powercA"
 #Nval = 3
 Nval = 10
-g,coh,phase = correlation_analysis.interferometric_coherence_2D(powercA,powercB,Nval)
+gx,cohx,phasex = correlation_analysis.interferometric_coherence_2D(powercAx,powercBx,Nval)
+gy,cohy,phasey = correlation_analysis.interferometric_coherence_2D(powercAy,powercBy,Nval)
 
 
 
-goo = coh < cohmin
-coh[goo] = float("nan")
-phase[goo] = float("nan")
+goo = cohx < cohmin
+cohx[goo] = float("nan")
+phasex[goo] = float("nan")
+phasex = np.degrees(phasex)
 
-phase = np.degrees(phase)
+goo = cohy < cohmin
+cohy[goo] = float("nan")
+phasey[goo] = float("nan")
+phasey = np.degrees(phasey)
 
 
 
 #Reduce arrays to desired timerange
-goo, powercAz, tspecz = ps.slice_spectrogram(tz,tspec,np.abs(powercA),nsec)
-goo, powercBz, tpowercBz = ps.slice_spectrogram(tz,tspec,np.abs(powercA),nsec)
-goo, cohz, ttmp = ps.slice_spectrogram(tz,tspec,coh,nsec)
-goo, phasez, ttmp = ps.slice_spectrogram(tz,tspec,phase,nsec)
+goo, powercAxz, tspecxz = ps.slice_spectrogram(tz,tspecx,np.abs(powercAx),nsec)
+goo, powercBxz, tpowercBxz = ps.slice_spectrogram(tz,tspecx,np.abs(powercAx),nsec)
+goo, cohxz, ttmp = ps.slice_spectrogram(tz,tspecx,cohx,nsec)
+goo, phasexz, ttmp = ps.slice_spectrogram(tz,tspecx,phasex,nsec)
 
-
-
+goo, powercAyz, tspecyz = ps.slice_spectrogram(tz,tspecy,np.abs(powercAy),nsec)
+goo, powercByz, tpowercByz = ps.slice_spectrogram(tz,tspecy,np.abs(powercAy),nsec)
+goo, cohyz, ttmp = ps.slice_spectrogram(tz,tspecy,cohy,nsec)
+goo, phaseyz, ttmp = ps.slice_spectrogram(tz,tspecy,phasey,nsec)
 
 
 #Endurance has ~3m booms, so the 
 receiver_spacing = 2.1 #meters -- effective length of spaced receiver (=3*cos(45))
 
 
-fkpowspec = 0 
-kvals = 0
-fvals = 0
 #Plot full res results 
 
-del(fkpowspec, kvals, fvals)
-fkpowspec, kvals, fvals = interf.inter_fvsk(np.abs(powercAz),tspecz,fspec, 
-                                         phasez,tspecz,fspec,
+fkpowspecx, kvalsx, fvalsx = interf.inter_fvsk(np.abs(powercAxz),tspecxz,fspecx, 
+                                         phasexz,tspecxz,fspecx,
                                          receiver_spacing,
                                          mean_max='max',
-                                         nkbins=400,
+                                         nkbins=200,
                                          klim=[-50,50])
+fkpowspecy, kvalsy, fvalsy = interf.inter_fvsk(np.abs(powercAyz),tspecyz,fspecy, 
+                                         phaseyz,tspecyz,fspecy,
+                                         receiver_spacing,
+                                         mean_max='max',
+                                         nkbins=200,
+                                         klim=[-40,40])
+
 
 
 #Find k-location of max power for every frequency
-pmaxvals = np.zeros(np.shape(fkpowspec))
-pmaxvals[:,:] = 1
-for f in range(len(fspec)):
-    if np.nanmax(fkpowspec[f,:]):
-        cond = fkpowspec[f,:] == np.nanmax(fkpowspec[f,:])
-    pmaxvals[f,:] = pmaxvals[f,:]*cond
+pmaxvalsx = np.zeros(np.shape(fkpowspecx))
+pmaxvalsx[:,:] = 1
+for f in range(len(fspecx)):
+    if np.nanmax(fkpowspecx[f,:]):
+        cond = fkpowspecx[f,:] == np.nanmax(fkpowspecx[f,:])
+    else:
+        cond = 1
+    pmaxvalsx[f,:] = pmaxvalsx[f,:]*cond
+
+pmaxvalsy = np.zeros(np.shape(fkpowspecy))
+pmaxvalsy[:,:] = 1
+for f in range(len(fspecy)):
+    if np.nanmax(fkpowspecy[f,:]):
+        cond = fkpowspecy[f,:] == np.nanmax(fkpowspecy[f,:])
+    else:
+        cond = 1
+    pmaxvalsy[f,:] = pmaxvalsy[f,:]*cond
 
 
 
 #Plot the results (freq vs k)
-vr = [-45,-20]
-yr = [5000,9000]
-kr = [-20,20]
-titlegoo = 'slice from '+ str(tz) + '-' + str(tz + nsec) + ' sec\n' + vAstr + ' and ' + vBstr
+titlegoo = 'slice from '+ str(tz) + '-' + str(tz + nsec) + ' sec\n' #+ vAstrx + ' and ' + vBstrx
 xr = [tz-3*nsec,tz+3*nsec]
+
+xptitle = 'V1V3-V4V2'
+yptitle = 'V3V2-V1V4'
 
 
 fig,axs = plt.subplots(6)
-ps.plot_spectrogram(tspec,fspec,np.abs(powercA),vr=vr,yr=yr,xr=xr, yscale='linear',ax=axs[0],xlabel='time(s)',ylabel='power\nf(Hz)',title=titlegoo)
-ps.plot_spectrogram(tspec,fspec,np.abs(powercB),vr=vr,yr=yr,xr=xr, yscale='linear',ax=axs[1],xlabel='time(s)',ylabel='power\nf(Hz)')
-ps.plot_spectrogram(tspec,fspec,coh,vr=[0,1],zscale='linear',xr=xr,yr=yr,yscale='linear',ax=axs[2],xlabel='time(s)',ylabel='Coherence**2\nf(Hz)')
-ps.plot_spectrogram(tspec,fspec,np.abs(phase),vr=[0,180],zscale='linear',xr=xr,yr=yr,yscale='linear',ax=axs[3],xlabel='time(s)',ylabel='|Phase|(0-180deg)\nf(Hz)',cmap='Spectral')
-ps.plot_spectrogram(kvals,fvals,fkpowspec,vr=vr,xr=kr,yr=yr,yscale='linear',ax=axs[4],minzval=-120,maxzval=10,xlabel='k(rad/m)',ylabel='f(Hz)')
-ps.plot_spectrogram(kvals,fvals,pmaxvals,vr=[0,2],xr=kr,yr=yr,zscale='linear',yscale='linear',ax=axs[5],minzval=-120,maxzval=10,xlabel='k(rad/m)',ylabel='f(Hz)',cmap='Greys')
+ps.plot_spectrogram(tspecx,fspecx,np.abs(powercAx),vr=vr,yr=yr,xr=xr, yscale=ys,ax=axs[0],xlabel='time(s)',ylabel='power\nf(Hz)',title=titlegoo)
+ps.plot_spectrogram(tspecx,fspecx,np.abs(powercBx),vr=vr,yr=yr,xr=xr, yscale=ys,ax=axs[1],xlabel='time(s)',ylabel='power\nf(Hz)')
+ps.plot_spectrogram(tspecx,fspecx,cohx,vr=[0,1],zscale='linear',xr=xr,yr=yr,yscale=ys,ax=axs[2],xlabel='time(s)',ylabel='Coherence**2\nf(Hz)')
+ps.plot_spectrogram(tspecx,fspecx,np.abs(phasex),vr=[0,180],zscale='linear',xr=xr,yr=yr,yscale=ys,ax=axs[3],xlabel='time(s)',ylabel='|Phase|(0-180deg)\nf(Hz)',cmap='Spectral')
+ps.plot_spectrogram(kvalsx,fvalsx,pmaxvalsx,vr=[0,1],xr=kr,yr=yr,zscale='linear',yscale=ys,ax=axs[4],minzval=0,maxzval=1,xlabel='k(rad/m)',ylabel="kx'\n"+xptitle+'\nf(Hz)',cmap='Greys')
+ps.plot_spectrogram(kvalsx,fvalsx,fkpowspecx,vr=vr,xr=kr,yr=yr,yscale=ys,ax=axs[4],minzval=-120,maxzval=10,xlabel='k(rad/m)',ylabel="kx'\n"+xptitle+'\nf(Hz)',alpha=0.5)
+ps.plot_spectrogram(kvalsy,fvalsy,pmaxvalsy,vr=[0,1],xr=kr,yr=yr,zscale='linear',yscale=ys,ax=axs[5],minzval=0,maxzval=1,xlabel='k(rad/m)',ylabel="ky'\n"+yptitle+'\nf(Hz)',cmap='Greys')
+ps.plot_spectrogram(kvalsy,fvalsy,fkpowspecy,vr=vr,xr=kr,yr=yr,yscale=ys,ax=axs[5],minzval=-120,maxzval=10,xlabel='k(rad/m)',ylabel="ky'\n"+yptitle+'\nf(Hz)',alpha=0.5)
 
-for i in range(3): axs[i].axvline(tz)
-for i in range(3): axs[i].axvline(tz+nsec)
 
+for i in range(4): axs[i].axvline(tz)
+for i in range(4): axs[i].axvline(tz+nsec)
+
+#Plot the limiting k-vector value based on receiver spacing. 
+#i.e. location when wavelength equals interferometry receiver spacing
+klim = 2*np.pi / receiver_spacing
+for i in range(3): axs[i+3].axvline(klim)
+for i in range(3): axs[i+3].axvline(-klim)
+
+
+#----------------
+#----------------
+#----------------
 
 fig,axs = plt.subplots(2)
-ps.plot_spectrogram(kvals,fvals,fkpowspec,vr=vr,xr=kr,yr=yr,yscale='linear',ax=axs[0],minzval=-120,maxzval=10,xlabel='k(rad/m)',ylabel='f(Hz)')
-ps.plot_spectrogram(kvals,fvals,pmaxvals,vr=[0,2],xr=kr,yr=yr,zscale='linear',yscale='linear',ax=axs[1],minzval=-120,maxzval=10,xlabel='k(rad/m)',ylabel='f(Hz)',cmap='Greys')
+ps.plot_spectrogram(kvalsx,fvalsx,pmaxvalsx,vr=[0,1],xr=kr,yr=yr,zscale='linear',yscale=ys,ax=axs[0],minzval=0,maxzval=1,xlabel='k(rad/m)',ylabel="kx'\n"+xptitle+'\nf(Hz)',cmap='Greys',title=titlegoo)
+ps.plot_spectrogram(kvalsx,fvalsx,fkpowspecx,vr=vr,xr=kr,yr=yr,yscale=ys,ax=axs[0],minzval=-120,maxzval=10,xlabel='k(rad/m)',ylabel="kx'\n"+xptitle+'\nf(Hz)',alpha=0.5)
+ps.plot_spectrogram(kvalsy,fvalsy,pmaxvalsy,vr=[0,1],xr=kr,yr=yr,zscale='linear',yscale=ys,ax=axs[1],minzval=0,maxzval=1,xlabel='k(rad/m)',ylabel="ky'\n"+yptitle+'\nf(Hz)',cmap='Greys')
+ps.plot_spectrogram(kvalsy,fvalsy,fkpowspecy,vr=vr,xr=kr,yr=yr,yscale=ys,ax=axs[1],minzval=-120,maxzval=10,xlabel='k(rad/m)',ylabel="ky'\n"+yptitle+'\nf(Hz)',alpha=0.5)
+
+axs[0].axvline(klim)
+axs[0].axvline(-klim)
+axs[1].axvline(klim)
+axs[1].axvline(-klim)
 
 
 
-#plt.subplots_adjust(bottom=0.1, right=0.8, top=0.9)
-#cax = plt.axes((0.85,0.1,0.075,0.8))
-#plt.colorbar(cax=cax)
 
 print('h')
-
-
-
 print('h')
-
-
-
-
-#TEST COHERENCE CALCULATION 
-
-ctst,ptst,ttst,ftst = cohtst(wfA,wfB,tdat,fs,nperseg=1024,coh_min=0)
-
+print('h')
 print('h')
 
 
