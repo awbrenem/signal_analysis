@@ -21,24 +21,24 @@ measure very little signal, meaning the waveform can be noise-dominated)
                        (y-hat)
                          V3
                       /  |  \             
-           (y-hat') x    |     x (x-hat')         
+           (y-hat') z    |     z (x-hat')         
                   /      |       \        
                V2--------O--------V1 (x-hat)    
                   \      |       /
-                    x    |     x
+                    z    |     z
                       \  |  /
                          V4
           
 
-x-points represent the centers of potential of the interferometry diagonals          
+z-points represent the centers of potential of the interferometry diagonals          
 
 Coordinate system (system of input test wave)
 x-hat --> E12 = V1 - V2 direction (positive to right)
 y-hat --> E34 = V3 - V4 direction (positive upwards)
 
 This code outputs the spectrum of k-values in the kx' and ky' directions, where
-x'-hat --> Ex' = V1V3x - V4V2x (45 deg inclined from x-hat)
-y'-hat --> Ey' = V3V2x - V1V4x (45 deg inclined from y-hat)
+x'-hat --> Ex' = V1V3z - V4V2z (45 deg inclined from x-hat)
+y'-hat --> Ey' = V3V2z - V1V4z (45 deg inclined from y-hat)
 
 """
 
@@ -120,7 +120,7 @@ plt.plot(fspec,np.abs(powercA[:,10]))
 cohmin = 0.9  #Best to limit bad coherence values at the onset. Otherwise get a lot of salt/pepper noise in final result
 
 
-#NOTE: + sense of phase defined as pointing towards center of potential of "powercA"
+#NOTE: + sense of phase (rad) defined as pointing towards center of potential of "powercA"
 g,coh,phase = correlation_analysis.interferometric_coherence_2D(powercA,powercB,3)
 
 
