@@ -5,6 +5,10 @@ NOTE: this technique only makes sense for parallel, spaced antennas.
 If the antennas are perpendicular, the ~90 deg phase shift in waves will be interpreted as a 
 large k-value (k*d = delta-phase)
 
+
+def inter_fvsk --> returns power spectrum of k-vectors vs freq
+
+
 """
 
 
@@ -76,12 +80,8 @@ def inter_fvsk(powspec,tpowspec,fpowspec,
     tdelta = np.median(tphasespec - np.roll(tphasespec,1))
 
     #------------------
-    #------------------
-    #------------------
     #SIMPLE VERSION ASSUMING THAT POWSPEC AND PHASESPEC HAVE SAME SIZE
-    #------------------
-    #------------------
-    #------------------
+    #---works (see interferometry_routines_call.py on how to make sure these are the same size)
 
     #For each frequency
     for f in range(0,nfreqs-1,1):
@@ -222,7 +222,19 @@ def inter_fvsk(powspec,tpowspec,fpowspec,
     """
 
 
-    return(powK, kvals, fphasespec)
+
+    #Find k-location of max power for every frequency
+    pmaxvals = np.zeros(np.shape(powK))
+    pmaxvals[:,:] = 1
+    for f in range(len(fphasespec)):
+        if np.nanmax(powK[f,:]):
+            cond = powK[f,:] == np.nanmax(powK[f,:])
+        else:
+            cond = 0
+        pmaxvals[f,:] = pmaxvals[f,:]*cond
+
+
+    return(powK, kvals, fphasespec, pmaxvals)
 
 
 
