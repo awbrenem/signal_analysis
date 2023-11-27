@@ -13,9 +13,10 @@ cross_correlation
 """
 
 
-def psd(wf, tvals, fs, tr):
+def psd(wf, tvals, fs, tr, nft=None):
     """
     Compute simple power spectral density
+    Returns V**2/Hz
     """
         
     import scipy.signal
@@ -26,7 +27,7 @@ def psd(wf, tvals, fs, tr):
     window = np.hanning(len(goot[0]))
     wfz = wf[goot]*window
 
-    f, S = scipy.signal.periodogram(wfz, fs, scaling='density')
+    f, S = scipy.signal.periodogram(wfz, fs, scaling='density', nfft=nft, detrend=False, window='boxcar') #, window='hann')
 
 
     plt.semilogy(f, S)
