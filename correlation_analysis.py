@@ -13,28 +13,36 @@ cross_correlation
 """
 
 
-def psd(wf, tvals, fs, tr, nft=None):
+def psd(wf, tvals, fs, tr, nft=None, zlog=1):
     """
-    Compute simple power spectral density
-    Returns V**2/Hz
+    Compute simple power spectral density from input waveform
+    Returns dB of units**2/Hz
     """
-        
-    import scipy.signal
+
+    #import scipy.signal
     import numpy as np
     import matplotlib.pyplot as plt
+    import matplotlib.mlab as mlab
 
     goot = np.where((tvals >= tr[0]) & (tvals <= tr[1]))
     window = np.hanning(len(goot[0]))
     wfz = wf[goot]*window
 
-    f, S = scipy.signal.periodogram(wfz, fs, scaling='density', nfft=nft, detrend=False, window='boxcar') #, window='hann')
+
+    #units of units**2/Hz
+    S, f = mlab.psd(wfz, Fs=fs, scale_by_freq=True, NFFT=nft)
 
 
-    plt.semilogy(f, S)
-    #plt.ylim([1e-7, 1e2])
-    #plt.xlim([0,100])
+    if zlog:
+        S = 10.*np.log10(S)
+
+
+    plt.plot(f,S)
     plt.xlabel('frequency [Hz]')
-    plt.ylabel('PSD [V**2/Hz]')
+    if zlog:
+        plt.ylabel('PSD dB (from units**2/Hz)')
+    else:
+        plt.ylabel('PSD (units**2/Hz)')
     plt.show()
 
     return S, f
@@ -205,6 +213,9 @@ def interferometric_coherence_2D(Z1,Z2,N):
     gamma=num/np.sqrt(np.abs(den1)*np.abs(den2))
     coherence=np.abs(gamma)
     phase= -1 * np.angle(gamma)  #-1 to define phase sense as + in the direction of probe that measured Z1
+    phase[phase < np.radians(-90)] += np.radians(180)
+    phase[phase > np.radians(90)] -= np.radians(180)
+
 
     return gamma,coherence,phase
 
@@ -247,9 +258,16 @@ def cross_spectral_density_spectrogram(wf1,wf2,times,fs,timechunk,nperseg=1024,p
         psd1, f = mlab.psd(wf1[i*ios:(i+1)*ios], Fs=fs, scale_by_freq=True, NFFT=nperseg)
         psd2, f = mlab.psd(wf2[i*ios:(i+1)*ios], Fs=fs, scale_by_freq=True, NFFT=nperseg)
  
-        #angle of complex PSD using arctan2 [see Eqn 2, Graham+16; doi:10.1002/2015JA021527]
         phase[:,i] = np.angle(Pxy[:,i],deg=True)
+        #angle of complex PSD using arctan2 [see Eqn 2, Graham+16; doi:10.1002/2015JA021527]
+        #phase[:,i] = np.degrees(np.arctan2(np.imag(Pxy[:,i]), np.real(Pxy[:,i])))
+
         coherence[:,i] = np.abs(Pxy[:,i])**2 / (psd1 * psd2)
+
+    phase[phase < 0] += 180
+    phase[phase < -90] += 180
+    phase[phase > 90] -= 180
+
 
     #Remove values corresponding to low coherence, if desired
     if coh_min != 0:
