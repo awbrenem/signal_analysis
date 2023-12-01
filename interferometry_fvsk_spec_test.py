@@ -173,7 +173,7 @@ titlegoo = 'Artificial wave test'
 fig,axs = plt.subplots(6)
 ps.plot_spectrogram(tspec,fspec,np.abs(powercA),vr=vr,yr=yr, yscale='linear',ax=axs[0],xlabel='time(s)',ylabel='power\nf(Hz)',title=titlegoo)
 ps.plot_spectrogram(tspec,fspec,np.abs(powercB),vr=vr,yr=yr, yscale='linear',ax=axs[1],xlabel='time(s)',ylabel='power\nf(Hz)')
-ps.plot_spectrogram(tspec,fspec,coh,vr=[0,1],zscale='linear',yr=yr,yscale='linear',ax=axs[2],xlabel='time(s)',ylabel='Coherence**2\nf(Hz)')
+ps.plot_spectrogram(tspec,fspec,coh,vr=[0,1],zscale='linear',yr=yr,yscale='linear',ax=axs[2],xlabel='time(s)',ylabel='Coherence\nf(Hz)')
 ps.plot_spectrogram(tspec,fspec,np.abs(np.degrees(phase)),vr=[0,5],zscale='linear',yr=yr,yscale='linear',ax=axs[3],xlabel='time(s)',ylabel='|Phase|(0-180deg)\nf(Hz)',cmap='Spectral')
 ps.plot_spectrogram(kvals,fvals,fkpowspec,xr=kr,yr=yr,vr=vr,yscale='linear',ax=axs[4],minzval=0,maxzval=np.nanmax(fkpowspec),xlabel='k(rad/m)',ylabel='f(Hz)')
 ps.plot_spectrogram(kvals,fvals,pmaxvals,vr=[0,2],xr=kr,yr=yr,zscale='linear',yscale='linear',ax=axs[5],minzval=-120,maxzval=10,xlabel='k(rad/m)',ylabel='f(Hz)',cmap='Greys')

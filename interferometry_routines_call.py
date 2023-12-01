@@ -207,6 +207,15 @@ fkpowspecy, kvalsy, fvalsy, pmaxvalsy = interf.inter_fvsk(np.abs(powercAyz),tspe
                                          nkbins=200,
                                          klim=[-5,5])
 
+#Turn k-values into wavelength
+wl1 = np.zeros(len(fvalsx))
+for i in range(len(fvalsx)):
+    tmp = pmaxvalsx[i,:]
+    kxgoo = kvalsx[np.where(tmp == 1)]
+    tmp = pmaxvalsy[i,:]
+    kygoo = kvalsy[np.where(tmp == 1)]
+    kmaggoo = np.sqrt(kxgoo**2 + kygoo*2)
+    wl1[i] = 2*np.pi/kmaggoo
 
 
 
@@ -242,41 +251,56 @@ vr=[-60,-20]
 xrspec = [tz,tz+nsec]
 
 
+
+
 #Plot values from Method 2
-fig,axs = plt.subplots(9, gridspec_kw={'height_ratios':[1,1,1,1,1,2,2,2,2]})
-ps.plot_spectrogram(tspecxz,fspecx,np.abs(powarrx2),vr=vr,xr=xrspec,yr=yr,yscale='linear',ax=axs[0])
-ps.plot_spectrogram(tarr_cohx2,freqs2,coharrx2,vr=[0.9,1], zscale='linear',xr=xrspec,yr=yr,yscale='linear',ax=axs[1])
-ps.plot_spectrogram(tarr_phasex2,freqs2,phasearrx2,vr=[-140,140], zscale='linear',xr=xrspec,yr=yr,yscale='linear',ax=axs[2])
-for i in range(3): axs[i].axvline(tz)
-for i in range(3): axs[i].axvline(tz + nsec)
-axs[3].plot(fspecx,powarrx2)
-axs[3].plot(fspecx,powavgx2,'.',color='black')
-axs[3].set_xlim(yr)
-axs[3].set_ylim(0,np.nanmax(powarrx2))
-axs[4].plot(freqs2,coharrx2)
-axs[4].plot(freqs2,cavgx2,'.',color='black')
-axs[4].set_xlim(yr)
-axs[4].set_ylim(0,1)
-axs[5].plot(freqs2,phasearrx2)
-axs[5].plot(freqs2,pavgx2,'.',color='black')
-axs[5].set_xlim(yr)
-axs[5].set_ylim(-180,180)
-axs[5].set_ylabel("phase (x')")
-axs[6].plot(freqs2,phasearry2)
-axs[6].plot(freqs2,pavgy2,'.',color='black')
-axs[6].set_xlim(yr)
-axs[6].set_ylim(-180,180)
-axs[6].set_ylabel("phase (y')")
-axs[7].plot(freqs2,kx2,'.',freqs2,ky2,'.')
-axs[7].set_xlim(yr)
-axs[7].set_ylim(min(np.nanmin(kx2),np.nanmin(ky2)),max([np.nanmax(kx2),np.nanmax(ky2)]))
-axs[7].set_ylabel("kx'(blue)\nky'(orange)")
-axs[8].plot(freqs2,wl2,'.',color='black')
-axs[8].set_xlim(yr)
-axs[8].set_ylim(0,20)
-axs[8].set_ylabel("wavelength\nfrom |k|")
+fig,axs = plt.subplots(6,2, figsize=(10,10))  #,gridspec_kw={'height_ratios':[1,1,1,1,1,1,1,1,1]})
+fig.subplots_adjust(bottom=0.1,right=0.8,left=0.2,top=0.9,hspace=0.4,wspace=0.4)
+#fig,axs = plt.subplots(5,2,figsize=(12,7),gridspec_kw={'height_ratios':[1,1,1,1],'width_ratios':[1,0.5]})
 
+ps.plot_spectrogram(tspecxz,fspecx,np.abs(powarrx2),vr=vr,xr=xrspec,yr=yr,yscale='linear',ax=axs[0,0],xlabel='time(sec)',ylabel='power spectrum\nfreq(Hz)')
+ps.plot_spectrogram(tarr_cohx2,freqs2,coharrx2,vr=[0.9,1], zscale='linear',xr=xrspec,yr=yr,yscale='linear',ax=axs[1,0],xlabel='time(sec)',ylabel='coherence\nfreq(Hz)')
+ps.plot_spectrogram(tarr_phasex2,freqs2,phasearrx2,vr=[-140,140], zscale='linear',xr=xrspec,yr=yr,yscale='linear',ax=axs[2,0],xlabel='time(sec)',ylabel='phase(deg)\nfreq(Hz)')
+for i in range(3): axs[i,0].axvline(tz)
+for i in range(3): axs[i,0].axvline(tz + nsec)
+axs[0,1].plot(fspecx,powarrx2)
+axs[0,1].plot(fspecx,powavgx2,'.',color='black')
+axs[0,1].set_xlim(yr)
+axs[0,1].set_ylim(0,np.nanmax(powarrx2))
+axs[0,1].set_ylabel('powermax')
+axs[0,1].set_xlabel('freq(Hz)')
+axs[1,1].plot(freqs2,coharrx2)
+axs[1,1].plot(freqs2,cavgx2,'.',color='black')
+axs[1,1].set_xlim(yr)
+axs[1,1].set_ylim(0,1)
+axs[1,1].set_ylabel('coherence')
+axs[1,1].set_xlabel('freq(Hz)')
+axs[2,1].plot(freqs2,phasearrx2)
+axs[2,1].plot(freqs2,pavgx2,'.',color='black')
+axs[2,1].set_xlim(yr)
+axs[2,1].set_ylim(-180,180)
+axs[2,1].set_ylabel("phase (x')")
+axs[2,1].set_xlabel('freq(Hz)')
+axs[3,1].plot(freqs2,phasearry2)
+axs[3,1].plot(freqs2,pavgy2,'.',color='black')
+axs[3,1].set_xlim(yr)
+axs[3,1].set_ylim(-180,180)
+axs[3,1].set_ylabel("phase (y')")
+axs[3,1].set_xlabel('freq(Hz)')
+axs[4,1].plot(freqs2,kx2,'.',freqs2,ky2,'.')
+axs[4,1].set_xlim(yr)
+axs[4,1].set_ylim(min(np.nanmin(kx2),np.nanmin(ky2)),max([np.nanmax(kx2),np.nanmax(ky2)]))
+axs[4,1].set_ylabel("kx'(blue)\nky'(orange)")
+axs[4,1].set_xlabel('freq(Hz)')
+axs[5,1].plot(freqs2,wl2,'.',color='black')
+axs[5,1].set_xlim(yr)
+axs[5,1].set_ylim(0,50)
+axs[5,1].set_ylabel("wavelength(m)\nfrom |k|")
+axs[5,1].set_xlabel('freq(Hz)')
 
+fig.delaxes(axs[3,0])
+fig.delaxes(axs[4,0])
+fig.delaxes(axs[5,0])
 
 
 
@@ -293,29 +317,39 @@ xptitle = 'V1V3-V4V2'
 yptitle = 'V3V2-V1V4'
 
 
-fig,axs = plt.subplots(6)
-ps.plot_spectrogram(tspecx,fspecx,np.abs(powercAx),vr=vr,yr=fr,xr=xr, yscale=ys,ax=axs[0],xlabel='time(s)',ylabel='power\nf(Hz)',title=titlegoo)
-ps.plot_spectrogram(tspecx,fspecx,np.abs(powercBx),vr=vr,yr=fr,xr=xr, yscale=ys,ax=axs[1],xlabel='time(s)',ylabel='power\nf(Hz)')
-ps.plot_spectrogram(tspecx,fspecx,cohx,vr=[0,1],zscale='linear',xr=xr,yr=fr,yscale=ys,ax=axs[2],xlabel='time(s)',ylabel='Coherence**2\nf(Hz)')
-ps.plot_spectrogram(tspecx,fspecx,np.abs(phasex),vr=[0,180],zscale='linear',xr=xr,yr=fr,yscale=ys,ax=axs[3],xlabel='time(s)',ylabel='|Phase|(0-180deg)\nf(Hz)',cmap='Spectral')
-ps.plot_spectrogram(kvalsx,fvalsx,pmaxvalsx,vr=[0,1],xr=kr,yr=fr,zscale='linear',yscale=ys,ax=axs[4],minzval=0,maxzval=1,xlabel='k(rad/m)',ylabel="kx'\n"+xptitle+'\nf(Hz)',cmap='Greys')
-ps.plot_spectrogram(kvalsx,fvalsx,fkpowspecx,vr=vr,xr=kr,yr=fr,yscale=ys,ax=axs[4],minzval=-120,maxzval=10,xlabel='k(rad/m)',ylabel="kx'\n"+xptitle+'\nf(Hz)',alpha=0.5)
-ps.plot_spectrogram(kvalsy,fvalsy,pmaxvalsy,vr=[0,1],xr=kr,yr=fr,zscale='linear',yscale=ys,ax=axs[5],minzval=0,maxzval=1,xlabel='k(rad/m)',ylabel="ky'\n"+yptitle+'\nf(Hz)',cmap='Greys')
-ps.plot_spectrogram(kvalsy,fvalsy,fkpowspecy,vr=vr,xr=kr,yr=fr,yscale=ys,ax=axs[5],minzval=-120,maxzval=10,xlabel='k(rad/m)',ylabel="ky'\n"+yptitle+'\nf(Hz)',alpha=0.5)
+fig,axs = plt.subplots(4,2,figsize=(12,7),gridspec_kw={'height_ratios':[1,1,1,1],'width_ratios':[1,0.5]})
+fig.subplots_adjust(bottom=0.1,right=0.8,left=0.2,top=0.9,hspace=0.6,wspace=0.6)
+ps.plot_spectrogram(tspecx,fspecx,np.abs(powercAx),vr=vr,yr=yr,xr=xr, yscale=ys,ax=axs[0,0],xlabel='time(s)',ylabel='power\nf(Hz)',title=titlegoo)
+ps.plot_spectrogram(tspecx,fspecx,np.abs(powercBx),vr=vr,yr=yr,xr=xr, yscale=ys,ax=axs[1,0],xlabel='time(s)',ylabel='power\nf(Hz)')
+ps.plot_spectrogram(tspecx,fspecx,cohx,vr=[0,1],zscale='linear',xr=xr,yr=yr,yscale=ys,ax=axs[2,0],xlabel='time(s)',ylabel='Coherence\nf(Hz)')
+ps.plot_spectrogram(tspecx,fspecx,np.abs(phasex),vr=[0,180],zscale='linear',xr=xr,yr=yr,yscale=ys,ax=axs[3,0],xlabel='time(s)',ylabel='|Phase|(0-180deg)\nf(Hz)',cmap='Spectral')
+for i in range(4): axs[i,0].axvline(tz)
+for i in range(4): axs[i,0].axvline(tz+nsec)
 
-
-for i in range(4): axs[i].axvline(tz)
-for i in range(4): axs[i].axvline(tz+nsec)
-
+ps.plot_spectrogram(kvalsx,fvalsx,pmaxvalsx,vr=[0,1],xr=krplot,yr=yr,zscale='linear',yscale=ys,ax=axs[0,1],minzval=0,maxzval=1,xlabel='k(rad/m)',ylabel="kx'\n"+xptitle+'\nf(Hz)',cmap='Greys')
+ps.plot_spectrogram(kvalsx,fvalsx,fkpowspecx,vr=vr,xr=krplot,yr=yr,yscale=ys,ax=axs[0,1],minzval=-120,maxzval=10,xlabel='k(rad/m)',ylabel="kx'\n"+xptitle+'\nf(Hz)',alpha=0.5)
+ps.plot_spectrogram(kvalsy,fvalsy,pmaxvalsy,vr=[0,1],xr=krplot,yr=yr,zscale='linear',yscale=ys,ax=axs[1,1],minzval=0,maxzval=1,xlabel='k(rad/m)',ylabel="ky'\n"+yptitle+'\nf(Hz)',cmap='Greys')
+ps.plot_spectrogram(kvalsy,fvalsy,fkpowspecy,vr=vr,xr=krplot,yr=yr,yscale=ys,ax=axs[1,1],minzval=-120,maxzval=10,xlabel='k(rad/m)',ylabel="ky'\n"+yptitle+'\nf(Hz)',alpha=0.5)
 #Plot the limiting k-vector value where short wavelength effects start to occur. 
 #i.e. location when wavelength equals about twice the interferometry receiver spacing
 klim = 2*np.pi / (2 * receiver_spacing)
-for i in range(3): axs[i+3].axvline(klim)
-for i in range(3): axs[i+3].axvline(-klim)
+for i in range(2): axs[i,1].axvline(klim)
+for i in range(2): axs[i,1].axvline(-klim)
 
-#Oplot the results from the initial (1d) analysis (Method 1)
-axs[4].plot(kx2,freqs2,'*',color='black')
-axs[5].plot(ky2,freqs2,'*',color='black')
+#Oplot the results from the initial (1d) analysis (Method 2)
+axs[0,1].plot(kx2,freqs2,'*',color='black')
+axs[1,1].plot(ky2,freqs2,'*',color='black')
+
+axs[2,1].plot(wl1,fspecx,'.',color='black',markersize=2)
+axs[2,1].plot(wl2,freqs2,'*',color='black')
+axs[2,1].set_ylim(yr)
+axs[2,1].set_xscale('log')
+axs[2,1].set_xlim(0.1,2000)
+axs[2,1].set_xlabel("wavelength(m)\n(from |k|)")
+
+
+fig.delaxes(axs[3,1])
+
 
 
 #--------------------------------

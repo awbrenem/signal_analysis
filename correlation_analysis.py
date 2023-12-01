@@ -15,7 +15,7 @@ cross_correlation
 
 def psd(wf, tvals, fs, tr, nft=None, zlog=1):
     """
-    Compute simple power spectral density from input waveform
+    Compute simple power spectral density (real valued) from input waveform
     Returns dB of units**2/Hz
     """
 
@@ -25,12 +25,11 @@ def psd(wf, tvals, fs, tr, nft=None, zlog=1):
     import matplotlib.mlab as mlab
 
     goot = np.where((tvals >= tr[0]) & (tvals <= tr[1]))
-    window = np.hanning(len(goot[0]))
-    wfz = wf[goot]*window
+    #window = np.hanning(len(goot[0]))
+    #wfz = wf[goot]*window
 
-
-    #units of units**2/Hz
-    S, f = mlab.psd(wfz, Fs=fs, scale_by_freq=True, NFFT=nft)
+    #units of units**2/Hz (Hanning window default)
+    S, f = mlab.psd(wf, Fs=fs, scale_by_freq=True, NFFT=nft)
 
 
     if zlog:

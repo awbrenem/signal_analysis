@@ -1,7 +1,7 @@
 """
 Functions
 
-plot_spectrogram --> plot spectrogram nicely
+plot_spectrogram --> plot (pre-existing) spectrogram nicely
 slice_spectrogram --> extract a slice (with option of time averaging)
 """
 
