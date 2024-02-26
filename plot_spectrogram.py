@@ -42,7 +42,8 @@ def slice_spectrogram(tslice, tspec, spec, nsec=0):
     powavg = [0] * np.shape(powgoo)[0]
 
     for i in range(np.shape(powgoo)[0]):
-        powavg[i] = np.average(powgoo[i,:])    
+        powavg[i] = np.nanmean(powgoo[i,:])    
+        #powavg[i] = np.average(powgoo[i,:])    
 
     #powarr = np.abs(spec)[:,goo[0][0:navg]]
     powarr = spec[:,goo[0][0:navg]]
@@ -54,12 +55,15 @@ def slice_spectrogram(tslice, tspec, spec, nsec=0):
 
 
 def plot_spectrogram(t,f,p,
-                     vr=[0,1], xr=0, yr=0, 
+                     vr=[0,1],xr=0, yr=0, 
+                     minzval=0, maxzval=0,
                      yscale='linear', zscale='log', 
                      ax=False, show=True, invert=False, 
                      title='', xlabel='', ylabel='', 
-                     minzval=0, maxzval=0, cmap='turbo',
-                     alpha=1):
+                     plot_kwargs={'cmap':'turbo'},
+                     plot_kwargs2={'origin':'lower','alpha':1,'interpolation':'nearest','aspect':'auto'},
+                     colorbar_kwargs={}):
+
 
     """
     Plot large-array spectograms quickly in Python using imshow. 
@@ -117,6 +121,9 @@ def plot_spectrogram(t,f,p,
     import numpy as np
 
 
+    #Merge the two keyword dictionaries
+    plot_kwargs.update(plot_kwargs2)
+
     if not xr: xr = [np.min(t),np.max(t)]
     if not yr: yr = [np.min(f),np.max(f)]
 
@@ -128,34 +135,36 @@ def plot_spectrogram(t,f,p,
 
 
     if minzval != 0:
-        pn[pn < minzval] = "nan"
+        pn[pn < minzval] = float("nan")
     if maxzval != 0:
-        pn[pn > maxzval] = "nan"
+        pn[pn > maxzval] = float("nan")
 
 
     if not ax:
         fig, ax = plt.subplots()
 
 
-    #invert image or not
-    origin='lower'
-    if invert:
-        origin='upper'
+    ##invert image or not
+    #origin='lower'
+    #if invert:
+    #    origin='upper'
 
 
     #Plot the spectrogram. Note that we need to force x,y axes to be defined exactly based on the range of data, otherwise image 
     #won't be displayed properly. 
 
-    #plt.set_cmap('turbo')
-    #plt.set_cmap('terrain')
-    #current_cmap = matplotlib.cm.get_cmap()
-    #current_cmap.set_bad(color='red')
 
-    #im = ax.imshow(pn,vmin=vr[0],vmax=vr[1],cmap='turbo',aspect='auto', extent=[np.min(t),np.max(t),np.min(f),np.max(f)], origin='lower', **plotkwargs)
-    im = ax.imshow(pn,vmin=vr[0],vmax=vr[1],cmap=cmap,aspect='auto',
+
+    im = ax.imshow(pn,vmin=vr[0],vmax=vr[1],
                    extent=[np.min(t),np.max(t),np.min(f),np.max(f)],
-                   origin=origin,alpha=alpha)
-    #im = ax.imshow(pn,vmin=vr[0],vmax=vr[1],aspect='auto', extent=[np.min(t),np.max(t),np.min(f),np.max(f)], origin='lower', **plotkwargs)
+                   **plot_kwargs)
+
+
+    #colorbar_kwargs = {'min':-180,'max':180}
+    fig.colorbar(im,ax=ax, **colorbar_kwargs)
+
+
+
 
     if title != '':
         ax.set_title(title)
