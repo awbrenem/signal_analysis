@@ -161,7 +161,7 @@ def plot_spectrogram(t,f,p,
 
 
     #colorbar_kwargs = {'min':-180,'max':180}
-    fig.colorbar(im,ax=ax, **colorbar_kwargs)
+    plt.colorbar(im,ax=ax, **colorbar_kwargs)
 
 
 
