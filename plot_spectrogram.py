@@ -1,9 +1,26 @@
 """
 Functions
 
+plot_scatter [NOT FINISHED] --> make scatter plot with colors for the dots
 plot_spectrogram --> plot (pre-existing) spectrogram nicely
 slice_spectrogram --> extract a slice (with option of time averaging)
 """
+
+
+def plot_scatter():
+    fig, axs = plt.subplots(2)
+    logv = np.log(data['SpecBMax_lb'])
+
+    p1 = axs[0].scatter(data['MLTrb'],data['Lrb'],c=data['EMFb'],vmin=0,vmax=np.max(data['EMFb']))
+    p2 = axs[1].scatter(data['MLTrb'],data['Lrb'],c=logv,vmin=np.min(logv),vmax=np.max(logv))
+    axs[0].set_ylabel('EMFISIS burst data\nsec\nL-shell')
+    axs[1].set_ylabel('chorus lower band amp\nlog10(pT^2/Hz)\nL-shell')
+    axs[0].set_xlabel('MLT')
+    axs[1].set_xlabel('MLT')
+    plt.colorbar(p1)
+    plt.colorbar(p2)
+
+
 
 
 
@@ -62,7 +79,8 @@ def plot_spectrogram(t,f,p,
                      title='', xlabel='', ylabel='', 
                      plot_kwargs={'cmap':'turbo'},
                      plot_kwargs2={'origin':'lower','alpha':1,'interpolation':'nearest','aspect':'auto'},
-                     colorbar_kwargs={}):
+                     colorbar_kwargs={},
+                     colorbar=1):
 
 
     """
@@ -161,7 +179,8 @@ def plot_spectrogram(t,f,p,
 
 
     #colorbar_kwargs = {'min':-180,'max':180}
-    plt.colorbar(im,ax=ax, **colorbar_kwargs)
+    if colorbar == 1:
+        plt.colorbar(im,ax=ax, **colorbar_kwargs)
 
 
 
