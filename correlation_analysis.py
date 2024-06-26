@@ -13,11 +13,62 @@ cross_correlation
 """
 
 
-def psd(wf, tvals, fs, tr, nft=None, zlog=1):
+def psd(wf, tvals, fs, tr, nft=None, zlog=0, ScaleByFreq=True):
     """
     Compute simple power spectral density (real valued) from input waveform
-    Returns dB of units**2/Hz
+    Returns units of mV/m/sqrt(Hz). 
+
+    To compare with waveform amplitudes at a set frequency you must then integrate over a freq range. 
+    E.g. for comparison to a wave with a particular amplitude that extends from 100-200 Hz.
+    Assume freq bin sizes of 20 Hz. From 100-200 Hz there are five 20 Hz bins. 
+    amp_100-200 = PSD(mV/m/sqrt(Hz)) * (20*5)**2   (units of mV/m)
+    
+    I've tested on some Endurance data and this seems to be working fine. 
     """
+
+    #import scipy.signal
+    import numpy as np
+    import matplotlib.pyplot as plt
+
+    goot = np.where((tvals >= tr[0]) & (tvals <= tr[1]))
+    #window = np.hanning(len(goot[0]))
+    #wfz = wf[goot]*window
+    wfz = wf[goot]
+
+
+    #Returns power
+    S, f = plt.psd(wfz, Fs=fs, scale_by_freq=ScaleByFreq, NFFT=nft)
+
+
+    if zlog == 1:
+        S = 20*np.log10(S)
+    else:
+        S = np.sqrt(S)
+
+
+    plt.plot(f,S)
+    if ScaleByFreq == False:
+        if zlog == 1:
+            plt.ylabel('PSD (dB of from power)')
+        else:
+            plt.ylabel('PSD (amplitude)')
+    else:
+        if zlog == 1:
+            plt.ylabel('PSD (dB/Hz from power)')
+        else:
+            plt.ylabel('PSD (amplitude/sqrt(Hz))')
+
+
+    plt.xlabel('frequency [Hz]')
+    plt.show()
+
+    return S, f
+
+
+"""
+def psd(wf, tvals, fs, tr, nft=None, zlog=0):
+    #Compute simple power spectral density (real valued) from input waveform
+    #Returns dB of units**2/Hz
 
     #import scipy.signal
     import numpy as np
@@ -27,25 +78,28 @@ def psd(wf, tvals, fs, tr, nft=None, zlog=1):
     goot = np.where((tvals >= tr[0]) & (tvals <= tr[1]))
     #window = np.hanning(len(goot[0]))
     #wfz = wf[goot]*window
+    wfz = wf[goot]
 
-    #units of units**2/Hz (Hanning window default)
-    S, f = mlab.psd(wf, Fs=fs, scale_by_freq=True, NFFT=nft)
+    #units of units**2
+    S, f = mlab.psd(wfz, Fs=fs, scale_by_freq=False, NFFT=nft)
 
 
-    if zlog:
-        S = 10.*np.log10(S)
+    if zlog == 1:
+        S = 20*np.log10(S)
+    else:
+        S = np.sqrt(S)
 
 
     plt.plot(f,S)
-    plt.xlabel('frequency [Hz]')
     if zlog:
-        plt.ylabel('PSD dB (from units**2/Hz)')
+        plt.ylabel('PSD (dB of units**2)')
     else:
-        plt.ylabel('PSD (units**2/Hz)')
+        plt.ylabel('PSD (units**1)')
+    plt.xlabel('frequency [Hz]')
     plt.show()
 
     return S, f
-
+"""
 
 
 
@@ -156,6 +210,8 @@ def cross_spectral_density(wf1,wf2,fs,nperseg=256,plotshow=False):
 
     https://stackoverflow.com/questions/21647120/how-to-use-the-cross-spectral-density-to-calculate-the-phase-shift-of-two-relate 
 
+    Returns coherence, phase (rad), and frequency (Hz)
+
     """
 
     from matplotlib import mlab
@@ -169,7 +225,7 @@ def cross_spectral_density(wf1,wf2,fs,nperseg=256,plotshow=False):
     # Then calculate cross spectral density
     csd, f = mlab.csd(wf1, wf2,NFFT=nperseg, Fs=fs,sides='default', scale_by_freq=False)
     coherence = np.absolute(csd)**2 / (ps1 * ps2)
-    angle = np.angle(csd, deg=True)  #from -180 to 180
+    angle = np.angle(csd)  #-Pi to Pi
 
     if plotshow:
         fig = plt.figure()
@@ -183,7 +239,7 @@ def cross_spectral_density(wf1,wf2,fs,nperseg=256,plotshow=False):
 
 
 
-def interferometric_coherence_2D(Z1,Z2,N):
+def interferometric_coherence_2D(Z1,Z2,N, coh_min=0):
     """
     https://elisecolin.medium.com/why-2d-convolutions-everywhere-in-sar-imaging-583e046e4b1c
 
@@ -199,7 +255,10 @@ def interferometric_coherence_2D(Z1,Z2,N):
         N --> 2D blurring window. N must be large enough for the estimate to be robust, 
                 but small enough not to blur the transitions between different backscattering zones.
                 Try N~few 
-
+    Returns:
+        coherence 
+        phase (radians)
+                
     """
     import numpy as np 
     from scipy import signal
@@ -212,8 +271,13 @@ def interferometric_coherence_2D(Z1,Z2,N):
     gamma=num/np.sqrt(np.abs(den1)*np.abs(den2))
     coherence=np.abs(gamma)
     phase= -1 * np.angle(gamma)  #-1 to define phase sense as + in the direction of probe that measured Z1
-    phase[phase < np.radians(-90)] += np.radians(180)
-    phase[phase > np.radians(90)] -= np.radians(180)
+
+
+    #Remove values corresponding to low coherence, if desired
+    if coh_min != 0:
+        bad = np.where(coherence < coh_min)
+        coherence[bad] = np.nan
+        phase[bad] = np.nan
 
 
     return gamma,coherence,phase
@@ -224,13 +288,17 @@ def cross_spectral_density_spectrogram(wf1,wf2,times,fs,timechunk,nperseg=1024,p
     NOTE: consider using interferometric_coherence_2D instead. 
 
     Compute the sliding spectrogram of the cross spectral density (Pxy(f):  see SciPy.signal.csd).
-    Returns the coherence, phase, and power spectrum (along with time and freq values). 
+    Returns the coherence, phase (radians), and power spectrum (along with time and freq values). 
     Coherence defined as: 
         Cxy(f) = |Pxy(f)|^2 / (psd1 * psd2)
         with units of amplitude**2/Hz
 
         coh_min -> set to remove all coherence/phase data below this coherence threshold.
-        
+      
+        timechunk --> determines how many datapoints to include in each CSD calculation
+        nperseg --> FFT current "timechunk" using this size
+
+            
     """
 
     from matplotlib import mlab
@@ -257,15 +325,11 @@ def cross_spectral_density_spectrogram(wf1,wf2,times,fs,timechunk,nperseg=1024,p
         psd1, f = mlab.psd(wf1[i*ios:(i+1)*ios], Fs=fs, scale_by_freq=True, NFFT=nperseg)
         psd2, f = mlab.psd(wf2[i*ios:(i+1)*ios], Fs=fs, scale_by_freq=True, NFFT=nperseg)
  
-        phase[:,i] = np.angle(Pxy[:,i],deg=True)
+        phase[:,i] = np.angle(Pxy[:,i]) #,deg=True)
         #angle of complex PSD using arctan2 [see Eqn 2, Graham+16; doi:10.1002/2015JA021527]
         #phase[:,i] = np.degrees(np.arctan2(np.imag(Pxy[:,i]), np.real(Pxy[:,i])))
 
         coherence[:,i] = np.abs(Pxy[:,i])**2 / (psd1 * psd2)
-
-    phase[phase < 0] += 180
-    phase[phase < -90] += 180
-    phase[phase > 90] -= 180
 
 
     #Remove values corresponding to low coherence, if desired
