@@ -80,7 +80,8 @@ def plot_spectrogram(t,f,p,
                      plot_kwargs={'cmap':'turbo'},
                      plot_kwargs2={'origin':'lower','alpha':1,'interpolation':'nearest','aspect':'auto'},
                      colorbar_kwargs={},
-                     colorbar=1):
+                     colorbar=1,
+                     xaxis2=0):
 
 
     """
@@ -107,7 +108,7 @@ def plot_spectrogram(t,f,p,
         zscale -> linear or log 
             linear = don't modify input spectral values
             log = take dB=10*log(p) of input spectral values
-            NOTE: scipy.signal.spectrogram will return V**2/Hz (density) or V**2 (spectrum) for an input waveform of V.
+            NOTE: scipy.signal.spectrogram will return units**2/Hz (density) or units**2 (spectrum) for an input waveform of "units".
         xr -> xrange 
         yr -> yrange 
         ax -> from matplotlib's subplots (e.g. fig, ax = plt.subplots()) - only set if you want this plot to be a part of other plots.
@@ -176,6 +177,11 @@ def plot_spectrogram(t,f,p,
     im = ax.imshow(pn,vmin=vr[0],vmax=vr[1],
                    extent=[np.min(t),np.max(t),np.min(f),np.max(f)],
                    **plot_kwargs)
+
+    #Code to add top x-axis
+    #if xaxis2:
+    #    ax2 = ax.twiny()
+    #    ax2.plot([11, 12, 31, 41, 15], [13, 51, 17, 11, 76], color='blue')
 
 
     #colorbar_kwargs = {'min':-180,'max':180}

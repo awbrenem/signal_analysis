@@ -16,12 +16,15 @@ cross_correlation
 def psd(wf, tvals, fs, tr, nft=None, zlog=0, ScaleByFreq=True):
     """
     Compute simple power spectral density (real valued) from input waveform
-    Returns units of mV/m/sqrt(Hz). 
+    Returns units of units/sqrt(Hz). 
 
     To compare with waveform amplitudes at a set frequency you must then integrate over a freq range. 
+        amp_f0-f1 = sum(i=0,nbins)[PSD(units/sqrt(Hz)) * sqrt(binsize)]
+
     E.g. for comparison to a wave with a particular amplitude that extends from 100-200 Hz.
     Assume freq bin sizes of 20 Hz. From 100-200 Hz there are five 20 Hz bins. 
-    amp_100-200 = PSD(mV/m/sqrt(Hz)) * (20*5)**2   (units of mV/m)
+
+        amp_100-200 = sum(i=0,20)[PSD(units/sqrt(Hz)) * np.sqrt(20)]   (units of "units")
     
     I've tested on some Endurance data and this seems to be working fine. 
     """
@@ -36,16 +39,16 @@ def psd(wf, tvals, fs, tr, nft=None, zlog=0, ScaleByFreq=True):
     wfz = wf[goot]
 
 
-    #Returns power
+    #Returns power spectral density (units**2 / Hz)
     S, f = plt.psd(wfz, Fs=fs, scale_by_freq=ScaleByFreq, NFFT=nft)
 
 
     if zlog == 1:
-        S = 20*np.log10(S)
+        S = 10*np.log10(S)
     else:
         S = np.sqrt(S)
 
-
+    """
     plt.plot(f,S)
     if ScaleByFreq == False:
         if zlog == 1:
@@ -61,7 +64,8 @@ def psd(wf, tvals, fs, tr, nft=None, zlog=0, ScaleByFreq=True):
 
     plt.xlabel('frequency [Hz]')
     plt.show()
-
+    """
+    
     return S, f
 
 
