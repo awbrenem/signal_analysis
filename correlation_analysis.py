@@ -1,14 +1,27 @@
 """
-Functions for correlation analysis of signals
+Functions for correlation analysis of signals.
+NOTE: Best current bet for computing phase/coherence dynamic spectra is csd_spectrum_piecewise.py. 
 
 psd - compute simple 1D power spectral density
+
 phase_cc_timelag_analysis - calculate running phase vs time using a cc lag analysis. 
+
 cross_spectral_density - compute 1D coherence and phase vs freq from calculation of CSD
-interferometric_coherence_2D(Z1,Z2,N): essentially the same as cross_spectral_density_spectrogram but can return 
-    gain/phase values at higher resolution. Better to use this one.
-cross_spectral_density_spectrogram - compute coherence and phase in 2D spectrogram form from calculation of CSD
+
+interferometric_coherence_2D(Z1,Z2,N): [NOTE: phase calculation not working. Use csd_spectrum_piecewise.py] 
+    essentially the same as cross_spectral_density_spectrogram but can return 
+    gain/phase values at higher resolution. Better to use this one if you're able to input complex spectrograms.
+
+csd_spectrum_piecewise - [****NOTE: current best routine to use] same as cross_spectral_density_spectrogram but is better b/c it 
+    doesn't rely on an exactly constant sample rate (which can lead to timing discrepancies). It gets the phases and timing correct.
+
+cross_spectral_density_spectrogram - [NOTE: use csd_spectrum_piecewise.py if you have complex input] compute coherence and phase in 2D spectrogram form from calculation of CSD.
+    Maybe use this one if you don't have complex spectrograms to input. 
+
 signal_coherence - Compute 1D coherence vs freq
+
 auto_correlation 
+
 cross_correlation 
 """
 
@@ -32,15 +45,18 @@ def psd(wf, tvals, fs, tr, nft=None, zlog=0, ScaleByFreq=True):
     #import scipy.signal
     import numpy as np
     import matplotlib.pyplot as plt
+    from matplotlib.mlab import psd
+    import matplotlib.mlab as mlab
+
 
     goot = np.where((tvals >= tr[0]) & (tvals <= tr[1]))
-    #window = np.hanning(len(goot[0]))
-    #wfz = wf[goot]*window
     wfz = wf[goot]
 
 
-    #Returns power spectral density (units**2 / Hz)
-    S, f = plt.psd(wfz, Fs=fs, scale_by_freq=ScaleByFreq, NFFT=nft)
+    #power spectral density (units**2 / Hz)
+    S, f = psd(wfz, NFFT=nft, Fs=fs, scale_by_freq=ScaleByFreq, window=mlab.window_hanning)
+    #S, f = plt.psd(wfz, Fs=fs, scale_by_freq=ScaleByFreq, NFFT=nft)
+
 
 
     if zlog == 1:
@@ -221,7 +237,6 @@ def cross_spectral_density(wf1,wf2,fs,nperseg=256,plotshow=False):
     from matplotlib import mlab
     import matplotlib.pyplot as plt
     import numpy as np
-
     # First create power spectral densities for normalization
     ps1, f = mlab.psd(wf1, Fs=fs, scale_by_freq=False, NFFT=nperseg)
     ps2, f = mlab.psd(wf2, Fs=fs, scale_by_freq=False, NFFT=nperseg)
@@ -251,6 +266,12 @@ def interferometric_coherence_2D(Z1,Z2,N, coh_min=0):
     That one will output phase and coherence arrays that are smaller than the power array taken from 
     FFT'ing the input waveforms. This routine, however, will output arrays of the same size. 
 
+    ********************************
+    NOTE: The phases are wrong. They're only going from -90 to 90, and are mostly centered on zero. 
+    Conversely, the phases are correct for cross_spectral_density_spectrogram.
+    I don't believe that this issue is being caused by the input as I've used two different programs to 
+    input values here and get the same results. 
+    ********************************
 
     (For use see interferometry_routines_call.py)
 
@@ -272,9 +293,12 @@ def interferometric_coherence_2D(Z1,Z2,N, coh_min=0):
     den1 = signal.convolve2d(Z2*np.conj(Z2), win, mode='same')
     den2 = signal.convolve2d(Z1*np.conj(Z1), win, mode='same')
 
-    gamma=num/np.sqrt(np.abs(den1)*np.abs(den2))
+    gamma=num/np.sqrt(np.abs(den1)*np.abs(den2))  #this is the cross-spectral density CSD
     coherence=np.abs(gamma)
-    phase= -1 * np.angle(gamma)  #-1 to define phase sense as + in the direction of probe that measured Z1
+    #phase= -1 * np.angle(gamma)  #-1 to define phase sense as + in the direction of probe that measured Z1
+    phase= np.angle(gamma)  
+    phase2= np.arctan2(gamma.imag,gamma.real)  
+    #phase3= np.arctan(gamma.imag/gamma.real)  
 
 
     #Remove values corresponding to low coherence, if desired
@@ -287,9 +311,119 @@ def interferometric_coherence_2D(Z1,Z2,N, coh_min=0):
     return gamma,coherence,phase
 
 
+
+"""
+
+Perform a piecewise FFT to produce a dynamic cross spectral density spectrum.
+Includes spectra of phase and coherence. 
+(see fft_spectrum_piecewise.py)
+
+This is important for data that has sample rate variations. The Python FFT routines input the waveform and the sample rate, not the time series. 
+Sample rate variations thus cause timing issues in the output. 
+
+This code computes the FFT for small chunks and gloms them together for a final dynamic spectrum (sonogram)
+
+fs_thres --> fraction of the median sample rate that current sample rate can be off by. 
+            e.g. fs_thres = 0.02 (i.e. 2%) means that sample rates < 98% of the median sample rate or > 102% are not considered. 
+            Spectral data at these times will be NaN'd.
+
+"""
+
+def csd_spectrum_piecewise(times, data1, data2, nfft=512, noverlap=8, fs_thres=0.02):
+
+    import sys 
+    sys.path.append('/Users/abrenema/Desktop/code/Aaron/github/mission_routines/rockets/Endurance/')
+    sys.path.append('/Users/abrenema/Desktop/code/Aaron/github/signal_analysis/')
+    sys.path.append('/Users/abrenema/Desktop/code/Aaron/github/plasma-physics-general/')
+    import numpy as np 
+    import matplotlib.mlab as mlab
+
+
+
+    #Find most common sample rate
+    dt = (times - np.roll(times,1))[1:]
+    fs_median = np.median(1/dt)
+
+
+    nchunks = int(np.floor(len(times) / nfft))
+
+    #create arrays of final data
+    #spec_fin = np.empty((int(nfft/2 + 1), nchunks))
+    #freqs_fin = np.empty((int(nfft/2 + 1), nchunks))
+    spec_fin1 = np.empty((int(nfft), nchunks), dtype=np.complex128)
+    spec_fin2 = np.empty((int(nfft), nchunks), dtype=np.complex128)
+    csd_fin = np.empty((int(nfft), nchunks), dtype=np.complex128)
+    phase_fin = np.empty((int(nfft), nchunks))
+    coh_fin = np.empty((int(nfft), nchunks))
+    freqs_fin = np.empty((int(nfft), nchunks))
+    tcenter_fin = np.empty(nchunks)
+    tleft_fin = np.empty(nchunks)
+    fs_fin = np.empty(nchunks)
+
+    for i in range(nchunks):
+        dtmp1 = data1[i*nfft:(i*nfft)+nfft]
+        dtmp2 = data2[i*nfft:(i*nfft)+nfft]
+        ttmp = times[i*nfft:(i*nfft)+nfft]
+    
+        #Test here for even sample rates
+        #If sample rate at current time is close to median sample rate, then continue
+        fs_fin[i] = 1/(ttmp[1]-ttmp[0])
+        fs_delta = fs_fin[i] / fs_median
+        if (fs_delta > (1-fs_thres)) & (fs_delta < (1+fs_thres)):
+            spec_fin1[:,i], freqs_fin[:,i] = mlab.psd(dtmp1, NFFT=nfft, Fs=fs_fin[i], scale_by_freq=False, 
+                                                window=mlab.window_hanning, noverlap=noverlap,sides='twosided')
+            spec_fin2[:,i], freqs_fin[:,i] = mlab.psd(dtmp2, NFFT=nfft, Fs=fs_fin[i], scale_by_freq=False, 
+                                                window=mlab.window_hanning, noverlap=noverlap,sides='twosided')
+
+            # Then calculate cross spectral density
+            csd_fin[:,i], freqs_fin[:,i] = mlab.csd(dtmp1, dtmp2,NFFT=nfft, Fs=fs_fin[i],sides='twosided',scale_by_freq=False)
+            coh_fin[:,i] = np.abs(csd_fin[:,i])**2 / (spec_fin1[:,i] * spec_fin2[:,i])
+            phase_fin[:,i] = np.angle(csd_fin[:,i])  #-Pi to Pi
+
+
+        #num = signal.convolve2d(Z1*np.conj(Z2), win, mode='same')
+        #den1 = signal.convolve2d(Z2*np.conj(Z2), win, mode='same')
+        #den2 = signal.convolve2d(Z1*np.conj(Z1), win, mode='same')
+        #gamma=num/np.sqrt(np.abs(den1)*np.abs(den2))  #this is the cross-spectral density CSD
+        #coherence=np.abs(gamma)
+
+        else:
+            spec_fin1[:,i] = np.nan
+            spec_fin2[:,i] = np.nan
+            csd_fin[:,i] = np.nan
+            coh_fin[:,i] = np.nan
+            phase_fin[:,i] = np.nan
+
+
+        #define time bins
+        tcenter_fin[i] = (ttmp[-1] + ttmp[0])/2.
+        tleft_fin[i] = ttmp[0]
+
+
+    #-------------------------------------------------
+    #turn the two-sided power array into a complex array
+    #indextmp = int(nfft/2)
+
+    #pcomplex1 = spec_fin1[indextmp:,:] + spec_fin1[0:indextmp,:] * 1j
+    #pcomplex = complex(spec_fin[indextmp:,:],spec_fin[0:indextmp,:])
+
+    #freqs_fin = freqs_fin[0:indextmp,:]
+    #freqs_fin = freqs_fin[indextmp:,:]
+
+
+    return freqs_fin, tcenter_fin, csd_fin,coh_fin,phase_fin,spec_fin1,spec_fin2, fs_fin
+
+
+
 def cross_spectral_density_spectrogram(wf1,wf2,times,fs,timechunk,nperseg=1024,plot=False,coh_min=0):
     """
-    NOTE: consider using interferometric_coherence_2D instead. 
+    NOTE: if you can input complex spectrograms, consider using interferometric_coherence_2D instead. 
+
+        =***********************************************
+    NOTE: THE TIMING VALUES ARE OFF IN THIS ROUTINE, WHEREAS THEY ARE FINE IN interferometric_coherence_2D.
+    I'VE DISCOVERED THAT THIS IS DUE TO A VARYING SAMPLE FREQUENCY WITH TIME. 
+    BEST TO SWITCH TO USING FFT_SPECTRUM_PIECEWISE.PY
+        =***********************************************
 
     Compute the sliding spectrogram of the cross spectral density (Pxy(f):  see SciPy.signal.csd).
     Returns the coherence, phase (radians), and power spectrum (along with time and freq values). 
@@ -299,13 +433,13 @@ def cross_spectral_density_spectrogram(wf1,wf2,times,fs,timechunk,nperseg=1024,p
 
         coh_min -> set to remove all coherence/phase data below this coherence threshold.
       
-        timechunk --> determines how many datapoints to include in each CSD calculation
+        timechunk --> (time, sec) determines how many datapoints to include in each CSD calculation. e.g. timechunk=0.2 sec
         nperseg --> FFT current "timechunk" using this size
 
-            
     """
 
     from matplotlib import mlab
+    import matplotlib.pyplot as plt
     import numpy as np 
     from scipy import signal
 
@@ -320,21 +454,22 @@ def cross_spectral_density_spectrogram(wf1,wf2,times,fs,timechunk,nperseg=1024,p
 
     #cross spectrum 
     Pxy = np.empty((len(Ptst), nchunks), dtype=complex)
-    coherence = np.zeros((len(Ptst), nchunks))
     phase = np.zeros((len(Ptst), nchunks))
-
+    coherence = np.transpose(phase)
+    
     for i in range(nchunks): 
         Pxy[:,i], freqs = mlab.csd(wf1[i*ios:(i+1)*ios], wf2[i*ios:(i+1)*ios],NFFT=nperseg, Fs=fs,sides='default', scale_by_freq=True)
-        #individial power spectral densities
-        psd1, f = mlab.psd(wf1[i*ios:(i+1)*ios], Fs=fs, scale_by_freq=True, NFFT=nperseg)
-        psd2, f = mlab.psd(wf2[i*ios:(i+1)*ios], Fs=fs, scale_by_freq=True, NFFT=nperseg)
+        ##individial power spectral densities
+        #psd1, f = mlab.psd(wf1[i*ios:(i+1)*ios], Fs=fs, scale_by_freq=True, NFFT=nperseg)
+        #psd2, f = mlab.psd(wf2[i*ios:(i+1)*ios], Fs=fs, scale_by_freq=True, NFFT=nperseg)
  
-        phase[:,i] = np.angle(Pxy[:,i]) #,deg=True)
+        phase[:,i] = np.angle(Pxy[:,i])
         #angle of complex PSD using arctan2 [see Eqn 2, Graham+16; doi:10.1002/2015JA021527]
         #phase[:,i] = np.degrees(np.arctan2(np.imag(Pxy[:,i]), np.real(Pxy[:,i])))
 
-        coherence[:,i] = np.abs(Pxy[:,i])**2 / (psd1 * psd2)
+        coherence[i,:] = np.asarray(mlab.cohere(wf1[i*ios:(i+1)*ios],wf2[i*ios:(i+1)*ios],nperseg,fs))[0,:]
 
+    coherence = np.transpose(coherence)
 
     #Remove values corresponding to low coherence, if desired
     if coh_min != 0:

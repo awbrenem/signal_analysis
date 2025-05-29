@@ -81,12 +81,15 @@ def plot_spectrogram(t,f,p,
                      plot_kwargs2={'origin':'lower','alpha':1,'interpolation':'nearest','aspect':'auto'},
                      colorbar_kwargs={},
                      colorbar=1,
-                     xaxis2=0):
+                     xaxis2=0, bc=[0,0,0]):
 
 
     """
     Plot large-array spectograms quickly in Python using imshow. 
     This method is so much faster than pcolormesh, which can take forever. 
+
+    NOTE: make sure the x-data are regularly gridded. This code will still work, but the FFT routine that 
+    created the data will spit out incorrect timing if not. 
 
     E.g. 
     First take the FFT
@@ -114,7 +117,9 @@ def plot_spectrogram(t,f,p,
         ax -> from matplotlib's subplots (e.g. fig, ax = plt.subplots()) - only set if you want this plot to be a part of other plots.
         minzval -> any values less than this will be assigned NaN
         maxzval -> any values greater than this will be assigned NaN
+        bc --> (bottom color). Set this as the lowest color value (RGB). Defaults to black
         
+                        
             ---------------------------------------------
             Example using two subplots
                 fig, ax = plt.subplots(2)
@@ -138,19 +143,66 @@ def plot_spectrogram(t,f,p,
     import matplotlib.pyplot as plt
     import matplotlib
     import numpy as np
-
+    from matplotlib import cm
+    from matplotlib.colors import ListedColormap, LinearSegmentedColormap
+    
+    
 
     #Merge the two keyword dictionaries
     plot_kwargs.update(plot_kwargs2)
 
-    if not xr: xr = [np.min(t),np.max(t)]
-    if not yr: yr = [np.min(f),np.max(f)]
+
+    #Modify the color bar so the lowest value is black
+    cmapgoo = cm.get_cmap('turbo', 256)
+    newcolors = cmapgoo(np.linspace(0, 1, 256))
+    #redefine RGB colors
+    bottom = np.array([bc[0],bc[1],bc[2], 1])
+    #topval = np.array([255/256, 0, 125/256, 1]) #raspberry
+    #topval = np.array([255/256, 0, 255/256, 1])
+    newcolors[0, :] = bottom
+    #newcolors[-1,:] = topval
+    newcmp = ListedColormap(newcolors)
+    plot_kwargs['cmap'] = newcmp
+
+
+
+    #Imshow requires accurate specification of plot limits or else it will show x/y axes incorrectly. 
+    #(1) if xr, yr are not set, then set them to the limits of the data
+    #(2) if xr, yr are set, then:
+    #   (a) if xr, yr are within the limits of the min/max xr and min/max yr, then reduce the arrays to be plotted
+    #   (b) if xr, yr are outside the limits of the min/max xr and min/max yr, then plot the limits of the data. 
+
+
+    if not xr: 
+        xrplot = [np.min(t),np.max(t)]
+    else: 
+        xrplot = [0,0]
+        xrplot[0] = max(np.min(t), xr[0])
+        xrplot[1] = min(np.max(t), xr[1])
+    if not yr: 
+        yrplot = [np.min(f),np.max(f)]
+    else: 
+        yrplot = [0,0]
+        yrplot[0] = max(np.min(f), yr[0])
+        yrplot[1] = min(np.max(f), yr[1])
+
+
+
+
+    #Subselect data within the desired timerange and frequency range
+    #(required for plotting with imshow, which doesn't have a time base input)
+    goodindt = np.where((t >= xrplot[0]) & (t <= xrplot[1]))[0]
+    goodindf = np.where((f >= yrplot[0]) & (f <= yrplot[1]))[0]
+    p2 = p[:,goodindt]
+    p3 = p2[goodindf,:]
+
+
 
 
     if zscale == 'log':
-        pn = 10.*np.log10(p)
+        pn = 10.*np.log10(p3)
     else: 
-        pn = p.copy()
+        pn = p3.copy()
 
 
     if minzval != 0:
@@ -172,11 +224,10 @@ def plot_spectrogram(t,f,p,
     #Plot the spectrogram. Note that we need to force x,y axes to be defined exactly based on the range of data, otherwise image 
     #won't be displayed properly. 
 
-
-
     im = ax.imshow(pn,vmin=vr[0],vmax=vr[1],
-                   extent=[np.min(t),np.max(t),np.min(f),np.max(f)],
+                   extent=[xrplot[0],xrplot[1],yrplot[0],yrplot[1]],
                    **plot_kwargs)
+
 
     #Code to add top x-axis
     #if xaxis2:
@@ -188,6 +239,7 @@ def plot_spectrogram(t,f,p,
     if colorbar == 1:
         plt.colorbar(im,ax=ax, **colorbar_kwargs)
 
+#cbar.set_label('# of contacts', rotation=270)
 
 
 
@@ -198,10 +250,9 @@ def plot_spectrogram(t,f,p,
     if ylabel != '':
         ax.set_ylabel(ylabel)
 
-    #Now we can change to desired xrange and yrange
-    plt.yscale(yscale)
-    ax.set_ylim(yr[0],yr[1])
-    ax.set_xlim(xr[0],xr[1])
+    ax.set_yscale(yscale)    
+    ax.set_xlim(xr)
+    ax.set_ylim(yr)
 
     if show == True:
         plt.show()
