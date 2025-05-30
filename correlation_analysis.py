@@ -13,7 +13,8 @@ interferometric_coherence_2D(Z1,Z2,N): [NOTE: phase calculation not working. Use
     gain/phase values at higher resolution. Better to use this one if you're able to input complex spectrograms.
 
 csd_spectrum_piecewise - [****NOTE: current best routine to use] same as cross_spectral_density_spectrogram but is better b/c it 
-    doesn't rely on an exactly constant sample rate (which can lead to timing discrepancies). It gets the phases and timing correct.
+    doesn't rely on an exactly constant sample rate (which can lead to timing discrepancies). It gets the phases, coherence, and timing correct.
+    Note that the coherence array can have slightly different freqs than the phase array.
 
 cross_spectral_density_spectrogram - [NOTE: use csd_spectrum_piecewise.py if you have complex input] compute coherence and phase in 2D spectrogram form from calculation of CSD.
     Maybe use this one if you don't have complex spectrograms to input. 
@@ -327,9 +328,18 @@ fs_thres --> fraction of the median sample rate that current sample rate can be 
             e.g. fs_thres = 0.02 (i.e. 2%) means that sample rates < 98% of the median sample rate or > 102% are not considered. 
             Spectral data at these times will be NaN'd.
 
+NOTE: the calculation of the phase requires 'twosided', and hence has both neg/pos freqs. 
+I'm calculating the coherence separately using matplotlib's cohere function, which has only real freqs. 
+To get this to work properly I have to calculate it at half the "nfft" value and pad it to the correct length.  
+This is why the phase and coherence spectra have separate frequency arrays (they're slightly different).
+I can't get the coherence calculation to work out any other way. 
+
+NOTE: the frequency arrays have shape [nfft/2, ntimes]. This is b/c the sample rate can chance with each chunk
+and thus so can the actual frequencies. For plotting, you'll want to choose a single freq array (else the plotting will take forever)
+
 """
 
-def csd_spectrum_piecewise(times, data1, data2, nfft=512, noverlap=8, fs_thres=0.02):
+def csd_spectrum_piecewise(times, data1, data2, nfft=512, noverlap=8, fs_thres=0.1):
 
     import sys 
     sys.path.append('/Users/abrenema/Desktop/code/Aaron/github/mission_routines/rockets/Endurance/')
@@ -344,8 +354,11 @@ def csd_spectrum_piecewise(times, data1, data2, nfft=512, noverlap=8, fs_thres=0
     dt = (times - np.roll(times,1))[1:]
     fs_median = np.median(1/dt)
 
+    #timerange = times[-1] - times[0]
 
     nchunks = int(np.floor(len(times) / nfft))
+    #nchunks = int(np.floor(len(times) / (10*nfft)))
+    #chunkpts = 10*nfft
 
     #create arrays of final data
     #spec_fin = np.empty((int(nfft/2 + 1), nchunks))
@@ -354,7 +367,8 @@ def csd_spectrum_piecewise(times, data1, data2, nfft=512, noverlap=8, fs_thres=0
     spec_fin2 = np.empty((int(nfft), nchunks), dtype=np.complex128)
     csd_fin = np.empty((int(nfft), nchunks), dtype=np.complex128)
     phase_fin = np.empty((int(nfft), nchunks))
-    coh_fin = np.empty((int(nfft), nchunks))
+    coh_direct = np.empty((int(nfft/2), nchunks))
+    freqs_coh = np.empty((int(nfft/2), nchunks))
     freqs_fin = np.empty((int(nfft), nchunks))
     tcenter_fin = np.empty(nchunks)
     tleft_fin = np.empty(nchunks)
@@ -364,7 +378,7 @@ def csd_spectrum_piecewise(times, data1, data2, nfft=512, noverlap=8, fs_thres=0
         dtmp1 = data1[i*nfft:(i*nfft)+nfft]
         dtmp2 = data2[i*nfft:(i*nfft)+nfft]
         ttmp = times[i*nfft:(i*nfft)+nfft]
-    
+
         #Test here for even sample rates
         #If sample rate at current time is close to median sample rate, then continue
         fs_fin[i] = 1/(ttmp[1]-ttmp[0])
@@ -376,24 +390,23 @@ def csd_spectrum_piecewise(times, data1, data2, nfft=512, noverlap=8, fs_thres=0
                                                 window=mlab.window_hanning, noverlap=noverlap,sides='twosided')
 
             # Then calculate cross spectral density
-            csd_fin[:,i], freqs_fin[:,i] = mlab.csd(dtmp1, dtmp2,NFFT=nfft, Fs=fs_fin[i],sides='twosided',scale_by_freq=False)
-            coh_fin[:,i] = np.abs(csd_fin[:,i])**2 / (spec_fin1[:,i] * spec_fin2[:,i])
+            csd_fin[:,i], freqs_fin[:,i] = mlab.csd(dtmp1, dtmp2, NFFT=nfft, Fs=fs_fin[i],sides='twosided',scale_by_freq=False)
+            #tstx, fx = mlab.csd(dtmp1, dtmp2, NFFT=nfft, Fs=fs_fin[i],sides='twosided',scale_by_freq=False)
+            #coh_fin[:,i] = np.abs(csd_fin[:,i])**2 / (spec_fin1[:,i] * spec_fin2[:,i])
             phase_fin[:,i] = np.angle(csd_fin[:,i])  #-Pi to Pi
 
-
-        #num = signal.convolve2d(Z1*np.conj(Z2), win, mode='same')
-        #den1 = signal.convolve2d(Z2*np.conj(Z2), win, mode='same')
-        #den2 = signal.convolve2d(Z1*np.conj(Z1), win, mode='same')
-        #gamma=num/np.sqrt(np.abs(den1)*np.abs(den2))  #this is the cross-spectral density CSD
-        #coherence=np.abs(gamma)
+            #Coherence arrays different sizes b/c only real freqs are considered
+            cohtmp, cohf = np.asarray(mlab.cohere(dtmp1, dtmp2, int(nfft/2), pad_to=nfft,Fs=fs_fin[i]))
+            coh_direct[:,i] = cohtmp[1:]
+            freqs_coh[:,i] = cohf[1:]
 
         else:
             spec_fin1[:,i] = np.nan
             spec_fin2[:,i] = np.nan
             csd_fin[:,i] = np.nan
-            coh_fin[:,i] = np.nan
+            #coh_fin[:,i] = np.nan
             phase_fin[:,i] = np.nan
-
+            coh_direct[:,i] = np.nan
 
         #define time bins
         tcenter_fin[i] = (ttmp[-1] + ttmp[0])/2.
@@ -411,7 +424,12 @@ def csd_spectrum_piecewise(times, data1, data2, nfft=512, noverlap=8, fs_thres=0
     #freqs_fin = freqs_fin[indextmp:,:]
 
 
-    return freqs_fin, tcenter_fin, csd_fin,coh_fin,phase_fin,spec_fin1,spec_fin2, fs_fin
+
+    return freqs_fin[int(nfft/2):,:], freqs_coh, tcenter_fin, csd_fin[int(nfft/2):,:], coh_direct, phase_fin[int(nfft/2):,:], spec_fin1[int(nfft/2):,:], spec_fin2[int(nfft/2):,:], fs_fin
+
+
+
+
 
 
 
