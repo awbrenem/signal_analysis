@@ -328,21 +328,20 @@ fs_thres --> fraction of the median sample rate that current sample rate can be 
             e.g. fs_thres = 0.02 (i.e. 2%) means that sample rates < 98% of the median sample rate or > 102% are not considered. 
             Spectral data at these times will be NaN'd.
 
-NOTE: the calculation of the phase requires 'twosided', and hence has both neg/pos freqs. 
-I'm calculating the coherence separately using matplotlib's cohere function, which has only real freqs. 
-To get this to work properly I have to calculate it at half the "nfft" value and pad it to the correct length.  
-This is why the phase and coherence spectra have separate frequency arrays (they're slightly different).
-I can't get the coherence calculation to work out any other way. 
 
-NOTE: the frequency arrays have shape [nfft/2, ntimes]. This is b/c the sample rate can chance with each chunk
-and thus so can the actual frequencies. For plotting, you'll want to choose a single freq array (else the plotting will take forever)
+NOTE: the frequency array returned is the median freq array over all times. If "fs_thres" is not set too high, this should be an 
+accurate representation of the freq spectrum overall. 
+
+NOTE: This routine is similar to fft_spectrum_piecewise but with half the time resolution in the returned spectra. 
+This is b/c this routine can't calculate coherence spectrum without having a time chunk of 2*NFFT, but in the other routine \we can get away with 
+a time chunk of size NFFT. So, the returned spectra here can be very useful for filtering the phase and coherence spectra, but use 
+fft_spectrum_piecewise for the fullest time resolution. 
 
 """
 
 def csd_spectrum_piecewise(times, data1, data2, nfft=512, noverlap=8, fs_thres=0.1):
 
     import sys 
-    sys.path.append('/Users/abrenema/Desktop/code/Aaron/github/mission_routines/rockets/Endurance/')
     sys.path.append('/Users/abrenema/Desktop/code/Aaron/github/signal_analysis/')
     sys.path.append('/Users/abrenema/Desktop/code/Aaron/github/plasma-physics-general/')
     import numpy as np 
@@ -354,57 +353,50 @@ def csd_spectrum_piecewise(times, data1, data2, nfft=512, noverlap=8, fs_thres=0
     dt = (times - np.roll(times,1))[1:]
     fs_median = np.median(1/dt)
 
-    #timerange = times[-1] - times[0]
+    chsz = nfft*2  #Chunk size
+    nchunks = int(np.floor(len(times) / chsz))
 
-    nchunks = int(np.floor(len(times) / nfft))
-    #nchunks = int(np.floor(len(times) / (10*nfft)))
-    #chunkpts = 10*nfft
 
     #create arrays of final data
-    #spec_fin = np.empty((int(nfft/2 + 1), nchunks))
-    #freqs_fin = np.empty((int(nfft/2 + 1), nchunks))
-    spec_fin1 = np.empty((int(nfft), nchunks), dtype=np.complex128)
-    spec_fin2 = np.empty((int(nfft), nchunks), dtype=np.complex128)
-    csd_fin = np.empty((int(nfft), nchunks), dtype=np.complex128)
-    phase_fin = np.empty((int(nfft), nchunks))
-    coh_direct = np.empty((int(nfft/2), nchunks))
-    freqs_coh = np.empty((int(nfft/2), nchunks))
-    freqs_fin = np.empty((int(nfft), nchunks))
+    spec_fin1 = np.empty((int(1+nfft/2), nchunks), dtype=np.complex128)
+    spec_fin2 = np.empty((int(1+nfft/2), nchunks), dtype=np.complex128)
+    csd_fin = np.empty((int(1+nfft/2), nchunks), dtype=np.complex128)
+    phase_fin = np.empty((int(1+nfft/2), nchunks))
+    coh_direct = np.empty((int(1+nfft/2), nchunks))
+    freqs = np.empty((int(1+nfft/2), nchunks))
     tcenter_fin = np.empty(nchunks)
     tleft_fin = np.empty(nchunks)
     fs_fin = np.empty(nchunks)
 
     for i in range(nchunks):
-        dtmp1 = data1[i*nfft:(i*nfft)+nfft]
-        dtmp2 = data2[i*nfft:(i*nfft)+nfft]
-        ttmp = times[i*nfft:(i*nfft)+nfft]
+        dtmp1 = data1[i*chsz:(i*chsz)+chsz]
+        dtmp2 = data2[i*chsz:(i*chsz)+chsz]
+        ttmp = times[i*chsz:(i*chsz)+chsz]
 
         #Test here for even sample rates
         #If sample rate at current time is close to median sample rate, then continue
         fs_fin[i] = 1/(ttmp[1]-ttmp[0])
         fs_delta = fs_fin[i] / fs_median
         if (fs_delta > (1-fs_thres)) & (fs_delta < (1+fs_thres)):
-            spec_fin1[:,i], freqs_fin[:,i] = mlab.psd(dtmp1, NFFT=nfft, Fs=fs_fin[i], scale_by_freq=False, 
-                                                window=mlab.window_hanning, noverlap=noverlap,sides='twosided')
-            spec_fin2[:,i], freqs_fin[:,i] = mlab.psd(dtmp2, NFFT=nfft, Fs=fs_fin[i], scale_by_freq=False, 
-                                                window=mlab.window_hanning, noverlap=noverlap,sides='twosided')
+
+
+            spec_fin1[:,i], fgoo = mlab.psd(dtmp1, NFFT=nfft, Fs=fs_fin[i], scale_by_freq=True, 
+                                                window=mlab.window_hanning, noverlap=noverlap,sides='default')
+            spec_fin2[:,i], fgoo = mlab.psd(dtmp2, NFFT=nfft, Fs=fs_fin[i], scale_by_freq=True, 
+                                                window=mlab.window_hanning, noverlap=noverlap,sides='default')
+
 
             # Then calculate cross spectral density
-            csd_fin[:,i], freqs_fin[:,i] = mlab.csd(dtmp1, dtmp2, NFFT=nfft, Fs=fs_fin[i],sides='twosided',scale_by_freq=False)
-            #tstx, fx = mlab.csd(dtmp1, dtmp2, NFFT=nfft, Fs=fs_fin[i],sides='twosided',scale_by_freq=False)
-            #coh_fin[:,i] = np.abs(csd_fin[:,i])**2 / (spec_fin1[:,i] * spec_fin2[:,i])
+            csd_fin[:,i], fgoo = mlab.csd(dtmp1, dtmp2, NFFT=nfft, Fs=fs_fin[i],sides='default',scale_by_freq=False)
             phase_fin[:,i] = np.angle(csd_fin[:,i])  #-Pi to Pi
 
             #Coherence arrays different sizes b/c only real freqs are considered
-            cohtmp, cohf = np.asarray(mlab.cohere(dtmp1, dtmp2, int(nfft/2), pad_to=nfft,Fs=fs_fin[i]))
-            coh_direct[:,i] = cohtmp[1:]
-            freqs_coh[:,i] = cohf[1:]
+            coh_direct[:,i], freqs[:,i] = np.asarray(mlab.cohere(dtmp1, dtmp2, nfft, Fs=fs_fin[i],sides='default',scale_by_freq=False,noverlap=noverlap))
 
         else:
             spec_fin1[:,i] = np.nan
             spec_fin2[:,i] = np.nan
             csd_fin[:,i] = np.nan
-            #coh_fin[:,i] = np.nan
             phase_fin[:,i] = np.nan
             coh_direct[:,i] = np.nan
 
@@ -413,19 +405,16 @@ def csd_spectrum_piecewise(times, data1, data2, nfft=512, noverlap=8, fs_thres=0
         tleft_fin[i] = ttmp[0]
 
 
-    #-------------------------------------------------
-    #turn the two-sided power array into a complex array
-    #indextmp = int(nfft/2)
-
-    #pcomplex1 = spec_fin1[indextmp:,:] + spec_fin1[0:indextmp,:] * 1j
-    #pcomplex = complex(spec_fin[indextmp:,:],spec_fin[0:indextmp,:])
-
-    #freqs_fin = freqs_fin[0:indextmp,:]
-    #freqs_fin = freqs_fin[indextmp:,:]
 
 
+    #----------------------------------------------------
+    #if you don't need the freq arrays for each time, average the frequencies. 
 
-    return freqs_fin[int(nfft/2):,:], freqs_coh, tcenter_fin, csd_fin[int(nfft/2):,:], coh_direct, phase_fin[int(nfft/2):,:], spec_fin1[int(nfft/2):,:], spec_fin2[int(nfft/2):,:], fs_fin
+    fmedian = np.zeros(int(1+nfft/2))
+    for f in range(len(fmedian)):
+        fmedian[f] = np.median(freqs[f,:])
+
+    return fmedian, tcenter_fin, csd_fin, coh_direct, phase_fin, fs_fin, spec_fin1, spec_fin2
 
 
 

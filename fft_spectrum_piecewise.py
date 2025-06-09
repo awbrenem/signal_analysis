@@ -19,13 +19,16 @@ Returns:     freqs_fin --> [f] (or [f,t] if 'full_freqs' set)  (final freqs)
              tcenter_fin --> [t] (final time values - center of bin)
              spec_fin --> [f,t]  (final sonogram values)
              fs_fin --> [t]    (sample rate at each time chunk)
-             
+
+NOTE: This routine is similar to correlation_analysis.csd_spectrum_piecewise but has 2x the time resolution in the returned spectra. 
+This is b/c the "csd" routine can't calculate correlations without having a time chunk of 2*NFFT, but here we can get away with 
+a time chunk of size NFFT. 
+
 """
 
 def fft_spectrum_piecewise(times, data, nfft=512, noverlap=8, fs_thres=0.02, full_freqs=0):
 
     import sys 
-    sys.path.append('/Users/abrenema/Desktop/code/Aaron/github/mission_routines/rockets/Endurance/')
     sys.path.append('/Users/abrenema/Desktop/code/Aaron/github/signal_analysis/')
     sys.path.append('/Users/abrenema/Desktop/code/Aaron/github/plasma-physics-general/')
     import numpy as np 
@@ -42,12 +45,8 @@ def fft_spectrum_piecewise(times, data, nfft=512, noverlap=8, fs_thres=0.02, ful
     nchunks = int(np.floor(len(times) / nfft))
 
     #create arrays of final data
-    #one-sided spectrum
     spec_fin = np.empty((int(nfft/2 + 1), nchunks))
     freqs_fin = np.empty((int(nfft/2 + 1), nchunks))
-    #two-sided spectrum
-    #spec_fin = np.empty((int(nfft), nchunks))
-    #freqs_fin = np.empty((int(nfft), nchunks))
     tcenter_fin = np.empty(nchunks)
     tleft_fin = np.empty(nchunks)
     fs_fin = np.empty(nchunks)
@@ -66,8 +65,6 @@ def fft_spectrum_piecewise(times, data, nfft=512, noverlap=8, fs_thres=0.02, ful
         if (fs_delta > (1-fs_thres)) & (fs_delta < (1+fs_thres)):
             spec_fin[:,i], freqs_fin[:,i] = psd(dtmp, NFFT=nfft, Fs=fs_fin[i], scale_by_freq=True, 
                                                 window=mlab.window_hanning, noverlap=noverlap,sides='onesided')
-            #spec_fin[:,i], freqs_fin[:,i] = psd(dtmp, NFFT=nfft, Fs=fs_fin[i], scale_by_freq=True, 
-            #                                    window=mlab.window_hanning, noverlap=noverlap,sides='twosided')
         else:
             spec_fin[:,i] = np.nan
 
@@ -85,27 +82,6 @@ def fft_spectrum_piecewise(times, data, nfft=512, noverlap=8, fs_thres=0.02, ful
             fmedian[f] = np.median(freqs_fin[f,:])
         freqs_fin = fmedian
 
-    #Test the median freqs vs freqs at a specific time
-    #plt.plot(freqs_fin[:,10])
-    #plt.plot(fmedian[:])
-    #df = freqs_fin[:,100] - fmedian
-    #plt.plot(df)
 
 
     return freqs_fin, tcenter_fin, spec_fin, fs_fin
-
-    """
-    #-------------------------------------------------
-    #turn the two-sided power array into a complex array
-    indextmp = int(nfft/2)
-
-    pcomplex = spec_fin[indextmp:,:] + spec_fin[0:indextmp,:] * 1j
-    #pcomplex = complex(spec_fin[indextmp:,:],spec_fin[0:indextmp,:])
-
-    #freqs_fin = freqs_fin[0:indextmp,:]
-    freqs_fin = freqs_fin[indextmp:,:]
-
-
-    return freqs_fin, tcenter_fin, pcomplex, fs_fin
-    #return freqs_fin, tcenter_fin, spec_fin, fs_fin
-    """
